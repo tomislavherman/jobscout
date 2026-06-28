@@ -101,13 +101,14 @@ The Go server itself needs no changes — it always listens on `/` and the proxy
 
 ---
 
-## Deploying on Ubuntu (without make)
-
-`make` may not be installed on a fresh Ubuntu VPS. Either install it (`sudo apt install make`) or run the steps manually:
+## Deploying on Ubuntu VPS
 
 ### Install dependencies
 
 ```bash
+# make
+sudo apt install -y make
+
 # Go (adjust version as needed)
 wget https://go.dev/dl/go1.25.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go1.25.linux-amd64.tar.gz
@@ -123,38 +124,17 @@ sudo systemctl start mysql
 sudo mysql -e "CREATE DATABASE jobscout; CREATE USER 'jobscout'@'localhost' IDENTIFIED BY 'yourpassword'; GRANT ALL ON jobscout.* TO 'jobscout'@'localhost';"
 ```
 
-### Build
-
-```bash
-# Frontend
-cd frontend
-VITE_BASE_PATH=/jobscout/ npm run build   # omit VITE_BASE_PATH if serving at root
-cd ..
-
-# Copy frontend dist into Go embed directory
-rm -rf backend/internal/server/static/*
-cp -r frontend/dist/* backend/internal/server/static/
-
-# Backend binary
-cd backend
-CGO_ENABLED=0 go build -o ../jobscout ./cmd/server/
-cd ..
-```
-
-### Generate JWT secret
-
-```bash
-cd backend && go run ./cmd/setauth/ && cd ..
-```
-
-### Configure environment
+### Build and configure
 
 ```bash
 cp .env.example .env
+make set-auth   # generates JWT_SECRET and writes it to .env
 # Edit .env and set:
 #   MYSQL_DSN=jobscout:yourpassword@tcp(127.0.0.1:3306)/jobscout?parseTime=true
-#   JWT_SECRET=<output from setauth above>
 #   ANTHROPIC_API_KEY=<your key>
+#   VITE_BASE_PATH=/jobscout/   # if serving at a subpath
+
+VITE_BASE_PATH=/jobscout/ make build   # omit VITE_BASE_PATH if serving at root
 ```
 
 ### Run as a systemd service
