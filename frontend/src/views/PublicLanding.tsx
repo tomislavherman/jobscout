@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import type { Job, CurrentUser } from '../types'
 import { listPublicJobs } from '../api'
 import JobCard from '../components/JobCard'
@@ -53,6 +54,8 @@ function PublicSidebar({ view, onNav, onSignIn }: { view: View; onNav: (v: View)
 
 export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser) => void }) {
   const t = useT()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<View>('jobs')
@@ -72,47 +75,34 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
     loadJobs().catch(console.error).finally(() => setLoading(false))
   }, [])
 
+  // Sync view state from URL — covers initial load and browser back/forward.
+  // useLocation().pathname is already stripped of the basename by React Router.
   useEffect(() => {
-    const path = window.location.pathname
+    const path = location.pathname
     const match = path.match(/^\/jobs\/(\d+)$/)
     if (match) {
       setSelectedJobId(parseInt(match[1]))
       setView('job')
     } else if (path === '/about') {
+      setSelectedJobId(null)
       setView('about')
+    } else {
+      setSelectedJobId(null)
+      setView('jobs')
     }
-  }, [])
-
-  useEffect(() => {
-    const handlePopState = () => {
-      const path = window.location.pathname
-      const match = path.match(/^\/jobs\/(\d+)$/)
-      if (match) {
-        setSelectedJobId(parseInt(match[1]))
-        setView('job')
-      } else if (path === '/about') {
-        setView('about')
-        setSelectedJobId(null)
-      } else {
-        setView('jobs')
-        setSelectedJobId(null)
-      }
-    }
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
+  }, [location.pathname])
 
   const openJob = (id: number) => {
     setSelectedJobId(id)
     setView('job')
-    window.history.pushState(null, '', `/jobs/${id}`)
+    navigate(`/jobs/${id}`)
   }
 
   const handleNav = (v: View) => {
     setView(v)
     if (v !== 'job') setSelectedJobId(null)
-    if (v === 'jobs') window.history.pushState(null, '', '/')
-    else if (v === 'about') window.history.pushState(null, '', '/about')
+    if (v === 'jobs') navigate('/')
+    else if (v === 'about') navigate('/about')
   }
 
   const openAuthModal = (type: Modal) => {
