@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { Job, JobStatus } from '../types'
-import { listJobs, STATUS_LABELS } from '../api'
+import { listJobs } from '../api'
 import JobCard from '../components/JobCard'
 import PullToRefresh from '../components/PullToRefresh'
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
+import { useT } from '../i18n'
 
 const STATUSES: (JobStatus | 'all')[] = ['all', 'new', 'saved', 'applied', 'interviewing', 'offer', 'rejected', 'withdrawn', 'ghosted', 'not_interested']
 const PAGE_SIZE = 18
@@ -22,6 +23,7 @@ const TAB_COLORS: Record<string, { inactive: string; active: string }> = {
 }
 
 export default function AllJobs() {
+  const t = useT()
   const [jobs, setJobs] = useState<Job[]>([])
   const [filter, setFilter] = useState<string>('all')
   const [loading, setLoading] = useState(true)
@@ -52,10 +54,10 @@ export default function AllJobs() {
     <PullToRefresh onRefresh={fetchJobs}>
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">All Listings</h2>
+          <h2 className="text-xl font-semibold">{t('all_listings')}</h2>
           {!loading && jobs.length > 0 && (
             <span className="hidden lg:inline text-sm text-gray-400">
-              Showing {visible.length} of {jobs.length}
+              {t('showing_of', { shown: visible.length, total: jobs.length })}
             </span>
           )}
         </div>
@@ -71,16 +73,16 @@ export default function AllJobs() {
                   filter === s ? colors.active : colors.inactive
                 }`}
               >
-                {s === 'all' ? 'All' : STATUS_LABELS[s as JobStatus]}
+                {s === 'all' ? t('filter_all') : t(`status_${s}` as Parameters<typeof t>[0])}
               </button>
             )
           })}
         </div>
 
         {loading && jobs.length === 0 ? (
-          <p className="text-gray-500">Loading...</p>
+          <p className="text-gray-500">{t('loading')}</p>
         ) : jobs.length === 0 ? (
-          <p className="text-gray-400 text-center py-12">No jobs match this filter.</p>
+          <p className="text-gray-400 text-center py-12">{t('no_jobs_match_filter')}</p>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -96,7 +98,7 @@ export default function AllJobs() {
                     onClick={loadMore}
                     className="px-6 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                   >
-                    Load more
+                    {t('load_more')}
                   </button>
                 </div>
               </div>

@@ -21,10 +21,9 @@ export interface Job {
 export interface TimelineEntry {
   id: number
   job_id: number
-  entry_type: 'status_change' | 'note' | 'interview' | 'prep'
+  entry_type: 'status_change' | 'note' | 'interview' | 'prep' | 'feedback' | 'reminder'
   status_from: string | null
   status_to: string | null
-  title: string | null
   content: string | null
   created_at: string
 }

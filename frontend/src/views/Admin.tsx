@@ -1,20 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import type { User, CurrentUser } from '../types'
 import { listUsers, updateUserRole, adminListSources, triggerSync, adminLastSyncs, adminListSourceRequests, adminUpdateSourceSettings } from '../api'
-
-const BATCH_OPTIONS = [
-  { label: '10', value: 10 },
-  { label: '25', value: 25 },
-  { label: '50', value: 50 },
-  { label: '100', value: 100 },
-  { label: '200', value: 200 },
-  { label: 'Unlimited', value: 0 },
-]
+import { useT } from '../i18n'
 
 function BatchSizeDropdown({ value, onChange }: { value: number | null | undefined; onChange: (v: number) => void }) {
+  const t = useT()
+  const BATCH_OPTIONS = [
+    { label: '10', value: 10 },
+    { label: '25', value: 25 },
+    { label: '50', value: 50 },
+    { label: '100', value: 100 },
+    { label: '200', value: 200 },
+    { label: t('unlimited'), value: 0 },
+  ]
+
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  // null/undefined = not set = default 10
   const current = BATCH_OPTIONS.find(o => o.value === (value ?? 10)) ?? BATCH_OPTIONS[0]
 
   useEffect(() => {
@@ -66,6 +67,7 @@ type LastRun = {
 }
 
 export default function Admin({ currentUser }: { currentUser: CurrentUser }) {
+  const t = useT()
   const [users, setUsers] = useState<User[]>([])
   const [usersLoading, setUsersLoading] = useState(true)
   const [usersError, setUsersError] = useState<string | null>(null)
@@ -129,7 +131,6 @@ export default function Admin({ currentUser }: { currentUser: CurrentUser }) {
     setSyncing(sourceId)
     try {
       await triggerSync(sourceId)
-      // Poll until the run is no longer in 'running' state
       while (true) {
         const data = await adminLastSyncs()
         const map: Record<number, LastRun> = {}
@@ -153,9 +154,9 @@ export default function Admin({ currentUser }: { currentUser: CurrentUser }) {
 
       {/* Users */}
       <section>
-        <h2 className="text-xl font-semibold mb-4">User Management</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('user_management')}</h2>
         {usersLoading ? (
-          <p className="text-gray-500">Loading users...</p>
+          <p className="text-gray-500">{t('loading_users')}</p>
         ) : usersError ? (
           <p className="text-red-500">{usersError}</p>
         ) : (
@@ -163,9 +164,9 @@ export default function Admin({ currentUser }: { currentUser: CurrentUser }) {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Username</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Joined</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('col_username')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('col_role')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('col_joined')}</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -176,7 +177,7 @@ export default function Admin({ currentUser }: { currentUser: CurrentUser }) {
                     <tr key={u.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium">
                         {u.username}
-                        {isSelf && <span className="ml-2 text-xs text-gray-400">(you)</span>}
+                        {isSelf && <span className="ml-2 text-xs text-gray-400">{t('you')}</span>}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -186,7 +187,7 @@ export default function Admin({ currentUser }: { currentUser: CurrentUser }) {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-500">
-                        {new Date(u.created_at).toLocaleDateString()}
+                        {new Date(u.created_at).toLocaleDateString(t('date_locale'))}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {u.role === 'user' ? (
@@ -194,16 +195,16 @@ export default function Admin({ currentUser }: { currentUser: CurrentUser }) {
                             onClick={() => handleRoleChange(u, 'admin')}
                             className="text-xs px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 text-gray-600"
                           >
-                            Make admin
+                            {t('make_admin')}
                           </button>
                         ) : (
                           <button
                             onClick={() => handleRoleChange(u, 'user')}
                             disabled={isSelf}
                             className="text-xs px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title={isSelf ? 'Cannot remove your own admin role' : undefined}
+                            title={isSelf ? t('cannot_remove_own_admin') : undefined}
                           >
-                            Remove admin
+                            {t('remove_admin')}
                           </button>
                         )}
                       </td>
@@ -218,9 +219,9 @@ export default function Admin({ currentUser }: { currentUser: CurrentUser }) {
 
       {/* Sync */}
       <section>
-        <h2 className="text-xl font-semibold mb-4">Source Sync</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('source_sync')}</h2>
         {sources.length === 0 ? (
-          <p className="text-gray-400 text-sm">No sources configured.</p>
+          <p className="text-gray-400 text-sm">{t('no_sources_configured')}</p>
         ) : (
           <div className="space-y-3">
             {sources.map((src) => {
@@ -231,7 +232,7 @@ export default function Admin({ currentUser }: { currentUser: CurrentUser }) {
                     <span className="font-medium text-sm">{src.name}</span>
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500 whitespace-nowrap">Batch size</span>
+                        <span className="text-xs text-gray-500 whitespace-nowrap">{t('batch_size')}</span>
                         <BatchSizeDropdown
                           value={src.sync_batch_size}
                           onChange={async (val) => {
@@ -251,28 +252,28 @@ export default function Admin({ currentUser }: { currentUser: CurrentUser }) {
                         >
                           <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round"/>
                         </svg>
-                        Sync
+                        {t('sync')}
                       </button>
                     </div>
                   </div>
 
                   {run ? (
                     <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500">
-                      <span>Started: {new Date(run.started_at).toLocaleString()}</span>
+                      <span>{t('started')}: {new Date(run.started_at).toLocaleString(t('date_locale'))}</span>
                       {run.completed_at && (
-                        <span>Completed: {new Date(run.completed_at).toLocaleString()}</span>
+                        <span>{t('completed_label')}: {new Date(run.completed_at).toLocaleString(t('date_locale'))}</span>
                       )}
                       <span>
-                        Status:{' '}
+                        {t('status_label')}:{' '}
                         <span className={`font-medium capitalize ${
                           run.status === 'success' ? 'text-green-600' :
                           run.status === 'failed' ? 'text-red-600' : 'text-yellow-600'
                         }`}>{run.status}</span>
                       </span>
-                      <span>{run.jobs_found} found, {run.jobs_new} new</span>
+                      <span>{t('found_new', { found: run.jobs_found, new: run.jobs_new })}</span>
                     </div>
                   ) : (
-                    <p className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">Never synced</p>
+                    <p className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">{t('never_synced')}</p>
                   )}
                 </div>
               )
@@ -283,18 +284,18 @@ export default function Admin({ currentUser }: { currentUser: CurrentUser }) {
 
       {/* Source Requests */}
       <section>
-        <h2 className="text-xl font-semibold mb-4">Source Suggestions</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('source_suggestions')}</h2>
         {sourceRequests.length === 0 ? (
-          <p className="text-gray-400 text-sm">No suggestions yet.</p>
+          <p className="text-gray-400 text-sm">{t('no_suggestions_yet')}</p>
         ) : (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">URL</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Note</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Submitted by</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Date</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('col_url')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('col_note')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('col_submitted_by')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('col_date')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -309,10 +310,10 @@ export default function Admin({ currentUser }: { currentUser: CurrentUser }) {
                       {req.note ?? <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-500">
-                      {req.username ?? <span className="text-gray-400">anonymous</span>}
+                      {req.username ?? <span className="text-gray-400">{t('anonymous')}</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                      {new Date(req.created_at).toLocaleString()}
+                      {new Date(req.created_at).toLocaleString(t('date_locale'))}
                     </td>
                   </tr>
                 ))}

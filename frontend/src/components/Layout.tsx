@@ -1,13 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import type { CurrentUser } from '../types'
-
-const navItems = [
-  { to: '/new', label: 'New' },
-  { to: '/all', label: 'All' },
-  { to: '/sources', label: 'Sources' },
-  { to: '/stats', label: 'Stats' },
-  { to: '/about', label: 'About' },
-]
+import { useT } from '../i18n'
+import LanguageToggle from './LanguageToggle'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `block px-3 py-2 rounded text-sm transition-colors ${
@@ -20,6 +14,16 @@ const bottomLinkClass = ({ isActive }: { isActive: boolean }) =>
   }`
 
 export default function Layout({ user, onLogout }: { user: CurrentUser; onLogout: () => void }) {
+  const t = useT()
+
+  const navItems = [
+    { to: '/new', label: t('nav_new') },
+    { to: '/all', label: t('nav_all') },
+    { to: '/sources', label: t('nav_sources') },
+    { to: '/stats', label: t('nav_stats') },
+    { to: '/about', label: t('nav_about') },
+  ]
+
   return (
     <div className="flex h-screen">
       {/* Sidebar — desktop only */}
@@ -35,20 +39,23 @@ export default function Layout({ user, onLogout }: { user: CurrentUser; onLogout
           ))}
           {user.role === 'admin' && (
             <li>
-              <NavLink to="/admin" className={navLinkClass}>Admin</NavLink>
+              <NavLink to="/admin" className={navLinkClass}>{t('nav_admin')}</NavLink>
             </li>
           )}
         </ul>
         <div className="mt-4 border-t border-gray-700 pt-4 px-3">
           <NavLink to="/profile" className={navLinkClass}>
-            Account
+            {t('nav_account')}
           </NavLink>
           <button
             onClick={onLogout}
             className="block w-full text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 transition-colors"
           >
-            Sign out
+            {t('nav_sign_out')}
           </button>
+          <div className="mt-3 px-3">
+            <LanguageToggle />
+          </div>
         </div>
       </nav>
 
@@ -58,18 +65,19 @@ export default function Layout({ user, onLogout }: { user: CurrentUser; onLogout
       </main>
 
       {/* Bottom nav — mobile only */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 z-40 flex">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 z-40 flex items-center">
         {navItems.map((item) => (
           <NavLink key={item.to} to={item.to} className={bottomLinkClass}>
             {item.label}
           </NavLink>
         ))}
         {user.role === 'admin' && (
-          <NavLink to="/admin" className={bottomLinkClass}>Admin</NavLink>
+          <NavLink to="/admin" className={bottomLinkClass}>{t('nav_admin')}</NavLink>
         )}
         <NavLink to="/profile" className={bottomLinkClass}>
-          Account
+          {t('nav_account')}
         </NavLink>
+        <LanguageToggle className="px-2" />
       </nav>
     </div>
   )

@@ -8,11 +8,14 @@ import PublicJobDetail from './PublicJobDetail'
 import PullToRefresh from '../components/PullToRefresh'
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 import About from './About'
+import { useT } from '../i18n'
+import LanguageToggle from '../components/LanguageToggle'
 
 type View = 'jobs' | 'job' | 'about'
 type Modal = 'login' | 'signup' | null
 
 function PublicSidebar({ view, onNav, onSignIn }: { view: View; onNav: (v: View) => void; onSignIn: () => void }) {
+  const t = useT()
   const linkClass = (v: View) =>
     `block px-3 py-2 rounded text-sm transition-colors ${view === v ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-800'}`
   const bottomClass = (v: View) =>
@@ -24,27 +27,32 @@ function PublicSidebar({ view, onNav, onSignIn }: { view: View; onNav: (v: View)
       <nav className="hidden lg:flex w-56 bg-gray-900 text-white flex-col p-4 shrink-0">
         <h1 className="text-xl font-bold mb-6 px-2">JobScout</h1>
         <ul className="space-y-1 flex-1">
-          <li><button onClick={() => onNav('jobs')} className={linkClass('jobs')}>Job Listings</button></li>
-          <li><button onClick={() => onNav('about')} className={linkClass('about')}>About</button></li>
+          <li><button onClick={() => onNav('jobs')} className={linkClass('jobs')}>{t('job_listings')}</button></li>
+          <li><button onClick={() => onNav('about')} className={linkClass('about')}>{t('nav_about')}</button></li>
         </ul>
         <div className="border-t border-gray-700 pt-4">
           <button onClick={onSignIn} className="block w-full text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-800 transition-colors">
-            Sign in
+            {t('nav_sign_in')}
           </button>
+          <div className="mt-3 px-3">
+            <LanguageToggle />
+          </div>
         </div>
       </nav>
 
       {/* Bottom nav — mobile only */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 z-40 flex">
-        <button onClick={() => onNav('jobs')} className={bottomClass('jobs')}>Listings</button>
-        <button onClick={() => onNav('about')} className={bottomClass('about')}>About</button>
-        <button onClick={onSignIn} className="flex-1 py-3 text-center text-xs font-medium text-gray-400 hover:text-gray-200 transition-colors">Sign in</button>
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 z-40 flex items-center">
+        <button onClick={() => onNav('jobs')} className={bottomClass('jobs')}>{t('nav_listings')}</button>
+        <button onClick={() => onNav('about')} className={bottomClass('about')}>{t('nav_about')}</button>
+        <button onClick={onSignIn} className="flex-1 py-3 text-center text-xs font-medium text-gray-400 hover:text-gray-200 transition-colors">{t('nav_sign_in')}</button>
+        <LanguageToggle className="px-2" />
       </nav>
     </>
   )
 }
 
 export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser) => void }) {
+  const t = useT()
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<View>('jobs')
@@ -64,7 +72,55 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
     loadJobs().catch(console.error).finally(() => setLoading(false))
   }, [])
 
-  const openJob = (id: number) => { setSelectedJobId(id); setView('job') }
+  useEffect(() => {
+    const path = window.location.pathname
+    const match = path.match(/^\/jobs\/(\d+)$/)
+    if (match) {
+      setSelectedJobId(parseInt(match[1]))
+      setView('job')
+    } else if (path === '/about') {
+      setView('about')
+    }
+  }, [])
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname
+      const match = path.match(/^\/jobs\/(\d+)$/)
+      if (match) {
+        setSelectedJobId(parseInt(match[1]))
+        setView('job')
+      } else if (path === '/about') {
+        setView('about')
+        setSelectedJobId(null)
+      } else {
+        setView('jobs')
+        setSelectedJobId(null)
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  const openJob = (id: number) => {
+    setSelectedJobId(id)
+    setView('job')
+    window.history.pushState(null, '', `/jobs/${id}`)
+  }
+
+  const handleNav = (v: View) => {
+    setView(v)
+    if (v !== 'job') setSelectedJobId(null)
+    if (v === 'jobs') window.history.pushState(null, '', '/')
+    else if (v === 'about') window.history.pushState(null, '', '/about')
+  }
+
+  const openAuthModal = (type: Modal) => {
+    if (view === 'job' && selectedJobId != null) {
+      sessionStorage.setItem('postLoginRedirect', `/jobs/${selectedJobId}`)
+    }
+    setModal(type)
+  }
 
   const overlay = modal && (
     <div
@@ -73,7 +129,7 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
     >
       <div className="w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
         {modal === 'login' ? (
-          <Login modal onLogin={onLogin} onSignup={() => setModal('signup')} />
+          <Login modal onLogin={onLogin} onSignup={() => openAuthModal('signup')} />
         ) : (
           <Signup modal onSignup={onLogin} />
         )}
@@ -84,7 +140,7 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
   if (view === 'about') {
     return (
       <div className="flex h-screen">
-        <PublicSidebar view={view} onNav={setView} onSignIn={() => setModal('login')} />
+        <PublicSidebar view={view} onNav={handleNav} onSignIn={() => openAuthModal('login')} />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
           <About />
         </main>
@@ -96,12 +152,12 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
   if (view === 'job' && selectedJobId != null) {
     return (
       <div className="flex h-screen">
-        <PublicSidebar view={view} onNav={setView} onSignIn={() => setModal('login')} />
-        <main className="flex-1 overflow-y-auto pb-20 lg:pb-0">
+        <PublicSidebar view={view} onNav={handleNav} onSignIn={() => openAuthModal('login')} />
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
           <PublicJobDetail
             jobId={selectedJobId}
-            onBack={() => setView('jobs')}
-            onLogin={() => setModal('login')}
+            onBack={() => handleNav('jobs')}
+            onLogin={() => openAuthModal('login')}
           />
         </main>
         {overlay}
@@ -111,24 +167,24 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
 
   return (
     <div className="flex h-screen">
-      <PublicSidebar view={view} onNav={setView} onSignIn={() => setModal('login')} />
+      <PublicSidebar view={view} onNav={handleNav} onSignIn={() => openAuthModal('login')} />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
         <PullToRefresh onRefresh={loadJobs}>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold">Job Listings</h2>
+            <h2 className="text-xl font-semibold">{t('job_listings')}</h2>
             {!loading && jobs.length > 0 && (
               <span className="hidden lg:inline text-sm text-gray-400">
-                Showing {Math.min(shown, jobs.length)} of {jobs.length}
+                {t('showing_of', { shown: Math.min(shown, jobs.length), total: jobs.length })}
               </span>
             )}
           </div>
 
           {loading && jobs.length === 0 ? (
-            <p className="text-gray-500">Loading jobs...</p>
+            <p className="text-gray-500">{t('loading_jobs')}</p>
           ) : jobs.length === 0 ? (
             <div className="text-center py-16">
-              <p className="text-gray-400 text-lg mb-2">No jobs yet</p>
-              <p className="text-gray-400 text-sm">Jobs will appear here after the first sync.</p>
+              <p className="text-gray-400 text-lg mb-2">{t('no_jobs_yet')}</p>
+              <p className="text-gray-400 text-sm">{t('jobs_appear_after_sync')}</p>
             </div>
           ) : (
             <>
@@ -151,7 +207,7 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
                       onClick={loadMore}
                       className="px-6 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                     >
-                      Load more
+                      {t('load_more')}
                     </button>
                   </div>
                 </div>

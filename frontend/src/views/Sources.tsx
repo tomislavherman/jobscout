@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Source } from '../types'
 import { listSources, updateUserSourceSettings } from '../api'
+import { useT } from '../i18n'
+import type { Translations } from '../i18n/en'
 
 type FeedType = 'hiring' | 'freelancer'
 
@@ -9,18 +11,20 @@ const FEED_LINKS: Record<FeedType, string> = {
   freelancer: 'https://news.ycombinator.com/submitted?id=jon_north',
 }
 
-const MAX_AGE_OPTIONS: { label: string; days: number | null }[] = [
-  { label: '1 day',     days: 1 },
-  { label: '1 week',    days: 7 },
-  { label: '2 weeks',   days: 14 },
-  { label: '1 month',   days: 30 },
-  { label: '2 months',  days: 60 },
-  { label: '6 months',  days: 180 },
-  { label: '1 year',    days: 365 },
-  { label: 'Unlimited', days: null },
+type MaxAgeOption = { labelKey: keyof Translations; days: number | null }
+
+const MAX_AGE_OPTIONS: MaxAgeOption[] = [
+  { labelKey: 'max_age_1d',   days: 1 },
+  { labelKey: 'max_age_7d',   days: 7 },
+  { labelKey: 'max_age_14d',  days: 14 },
+  { labelKey: 'max_age_30d',  days: 30 },
+  { labelKey: 'max_age_60d',  days: 60 },
+  { labelKey: 'max_age_180d', days: 180 },
+  { labelKey: 'max_age_365d', days: 365 },
+  { labelKey: 'unlimited',    days: null },
 ]
 
-function nearestOption(days: number | null): { label: string; days: number | null } {
+function nearestOption(days: number | null): MaxAgeOption {
   if (days === null) return MAX_AGE_OPTIONS[MAX_AGE_OPTIONS.length - 1]
   let best = MAX_AGE_OPTIONS[0]
   let bestDiff = Infinity
@@ -39,6 +43,7 @@ function MaxAgeDropdown({
   value: number | null
   onChange: (days: number | null) => void
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const current = nearestOption(value)
@@ -58,7 +63,7 @@ function MaxAgeDropdown({
         onClick={() => setOpen(!open)}
         className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
       >
-        {current.label}
+        {t(current.labelKey)}
         <span className="opacity-50 text-[10px]">▾</span>
       </button>
 
@@ -71,7 +76,7 @@ function MaxAgeDropdown({
               className="flex items-center justify-between w-full px-3 py-1.5 hover:bg-gray-50"
             >
               <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                {opt.label}
+                {t(opt.labelKey)}
               </span>
               {opt.days === current.days && <span className="text-gray-400 text-xs ml-2">✓</span>}
             </button>
@@ -83,6 +88,7 @@ function MaxAgeDropdown({
 }
 
 export default function Sources() {
+  const t = useT()
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<Record<number, boolean>>({})
@@ -120,14 +126,14 @@ export default function Sources() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-semibold">Sources</h2>
+        <h2 className="text-xl font-semibold">{t('sources')}</h2>
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Loading sources...</p>
+        <p className="text-gray-500">{t('loading_sources')}</p>
       ) : sources.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-400 text-lg mb-2">No sources available</p>
+          <p className="text-gray-400 text-lg mb-2">{t('no_sources_available')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -137,7 +143,7 @@ export default function Sources() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{source.name}</span>
-                    {saving[source.id] && <span className="text-xs text-gray-400">Saving...</span>}
+                    {saving[source.id] && <span className="text-xs text-gray-400">{t('saving')}</span>}
                   </div>
                   {source.config?.feed_type != null && FEED_LINKS[source.config.feed_type as FeedType] && (
                     <a
@@ -146,7 +152,7 @@ export default function Sources() {
                       rel="noopener noreferrer"
                       className="text-sm text-blue-600 hover:underline mt-0.5 inline-block"
                     >
-                      View on HN ↗
+                      {t('view_on_hn')}
                     </a>
                   )}
                 </div>
@@ -159,7 +165,7 @@ export default function Sources() {
 
                   {/* Enabled toggle */}
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <span className="text-sm text-gray-600">{source.enabled ? 'Enabled' : 'Disabled'}</span>
+                    <span className="text-sm text-gray-600">{source.enabled ? t('enabled') : t('disabled')}</span>
                     <button
                       role="switch"
                       aria-checked={source.enabled}

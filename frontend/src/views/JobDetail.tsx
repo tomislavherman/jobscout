@@ -4,10 +4,12 @@ import type { Job, TimelineEntry } from '../types'
 import { getJob, addTimelineEntry } from '../api'
 import StatusActions from '../components/StatusActions'
 import Timeline from '../components/Timeline'
+import { useT } from '../i18n'
 
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const t = useT()
   const [job, setJob] = useState<Job | null>(null)
   const [timeline, setTimeline] = useState<TimelineEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -15,7 +17,6 @@ export default function JobDetail() {
 
   const [showAddEntry, setShowAddEntry] = useState(false)
   const [entryType, setEntryType] = useState<string>('interview')
-  const [entryTitle, setEntryTitle] = useState('')
   const [entryContent, setEntryContent] = useState('')
   const [adding, setAdding] = useState(false)
 
@@ -38,15 +39,13 @@ export default function JobDetail() {
   }, [id])
 
   const handleAddEntry = async () => {
-    if (!id || (!entryTitle.trim() && !entryContent.trim())) return
+    if (!id || !entryContent.trim()) return
     setAdding(true)
     try {
       await addTimelineEntry(parseInt(id), {
         entry_type: entryType,
-        title: entryTitle || undefined,
         content: entryContent || undefined,
       })
-      setEntryTitle('')
       setEntryContent('')
       setShowAddEntry(false)
       fetchJob()
@@ -57,9 +56,16 @@ export default function JobDetail() {
     }
   }
 
-  if (loading) return <p className="text-gray-500">Loading job...</p>
+  if (loading) return <p className="text-gray-500">{t('loading_jobs')}</p>
   if (error) return <p className="text-red-500">{error}</p>
-  if (!job) return <p className="text-gray-400">Job not found.</p>
+  if (!job) return <p className="text-gray-400">{t('no_jobs_yet')}</p>
+
+  const entryTypes: { key: string; labelKey: Parameters<typeof t>[0] }[] = [
+    { key: 'interview', labelKey: 'entry_type_interview' },
+    { key: 'prep',      labelKey: 'entry_type_prep' },
+    { key: 'feedback',  labelKey: 'entry_type_feedback' },
+    { key: 'reminder',  labelKey: 'entry_type_reminder' },
+  ]
 
   return (
     <div className="max-w-3xl">
@@ -67,18 +73,18 @@ export default function JobDetail() {
         onClick={() => navigate(-1)}
         className="text-sm text-gray-500 hover:text-gray-700 mb-4"
       >
-        ← Back
+        {t('back')}
       </button>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-bold">{job.role || 'Unknown Role'}</h2>
+            <h2 className="text-2xl font-bold">{job.role || t('unknown_role')}</h2>
             {job.company && <p className="text-lg text-gray-600">{job.company}</p>}
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {(job.published_at || job.created_at) && (
                 <span className="text-xs text-gray-400">
-                  {new Date(job.published_at ?? job.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  {new Date(job.published_at ?? job.created_at).toLocaleDateString(t('date_locale'), { year: 'numeric', month: 'short', day: 'numeric' })}
                 </span>
               )}
               {job.source_name && (
@@ -94,36 +100,36 @@ export default function JobDetail() {
         <div className="grid grid-cols-2 gap-4 text-sm mb-4">
           {job.location && (
             <div>
-              <span className="text-gray-400">Location</span>
+              <span className="text-gray-400">{t('location')}</span>
               <p>{job.location}</p>
             </div>
           )}
           {job.remote_type && (
             <div>
-              <span className="text-gray-400">Remote</span>
+              <span className="text-gray-400">{t('remote')}</span>
               <p className="capitalize">{job.remote_type}</p>
             </div>
           )}
           {job.salary && (
             <div>
-              <span className="text-gray-400">Salary</span>
+              <span className="text-gray-400">{t('salary')}</span>
               <p className="font-medium">{job.salary}</p>
             </div>
           )}
           {job.employment_type && (
             <div>
-              <span className="text-gray-400">Type</span>
+              <span className="text-gray-400">{t('employment_type')}</span>
               <p className="capitalize">{job.employment_type.replace('_', ' ')}</p>
             </div>
           )}
           {job.residency && (
             <div>
-              <span className="text-gray-400">Residency</span>
+              <span className="text-gray-400">{t('residency')}</span>
               <p>{job.residency}</p>
             </div>
           )}
           <div>
-            <span className="text-gray-400">Source</span>
+            <span className="text-gray-400">{t('source')}</span>
             <p>
               <a
                 href={`https://news.ycombinator.com/item?id=${job.external_id.replace(/-\d+$/, '')}`}
@@ -131,7 +137,7 @@ export default function JobDetail() {
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:underline"
               >
-                View source ↗
+                {t('view_source')}
               </a>
             </p>
           </div>
@@ -139,7 +145,7 @@ export default function JobDetail() {
 
         {job.raw_text && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-sm text-gray-400 mb-2">Original posting</p>
+            <p className="text-sm text-gray-400 mb-2">{t('original_posting')}</p>
             <pre className="text-sm text-gray-700 bg-gray-50 p-3 rounded whitespace-pre-wrap font-sans leading-relaxed">{job.raw_text}</pre>
           </div>
         )}
@@ -149,35 +155,28 @@ export default function JobDetail() {
       {showAddEntry && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowAddEntry(false)}>
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-lg mb-4">Add Entry</h3>
+            <h3 className="font-semibold text-lg mb-4">{t('add_entry_title')}</h3>
             <div className="space-y-3">
               <div className="flex gap-2 flex-wrap">
-                {(['interview', 'prep', 'feedback', 'reminder'] as const).map((t) => (
+                {entryTypes.map(({ key, labelKey }) => (
                   <button
-                    key={t}
-                    onClick={() => setEntryType(t)}
-                    className={`px-3 py-1 text-sm rounded-full border transition-colors capitalize ${
-                      entryType === t
+                    key={key}
+                    onClick={() => setEntryType(key)}
+                    className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+                      entryType === key
                         ? 'bg-gray-900 text-white border-gray-900'
                         : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
                     }`}
                   >
-                    {t}
+                    {t(labelKey)}
                   </button>
                 ))}
               </div>
-              <input
-                type="text"
-                autoFocus
-                value={entryTitle}
-                onChange={(e) => setEntryTitle(e.target.value)}
-                placeholder="Title (optional)"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              />
               <textarea
+                autoFocus
                 value={entryContent}
                 onChange={(e) => setEntryContent(e.target.value)}
-                placeholder="Notes"
+                placeholder={t('notes')}
                 rows={4}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
               />
@@ -186,14 +185,14 @@ export default function JobDetail() {
                   onClick={() => setShowAddEntry(false)}
                   className="px-4 py-2 text-sm rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   onClick={handleAddEntry}
-                  disabled={adding || (!entryTitle.trim() && !entryContent.trim())}
+                  disabled={adding || !entryContent.trim()}
                   className="px-4 py-2 text-sm rounded bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
                 >
-                  {adding ? 'Adding...' : 'Add'}
+                  {adding ? t('adding') : t('add')}
                 </button>
               </div>
             </div>
@@ -204,13 +203,13 @@ export default function JobDetail() {
       {/* Timeline */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">Timeline</h3>
+          <h3 className="font-semibold">{t('timeline')}</h3>
           <button
             onClick={() => setShowAddEntry(true)}
             className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-            title="Add entry"
+            title={t('add_entry')}
           >
-            Add entry
+            {t('add_entry')}
           </button>
         </div>
         <Timeline entries={timeline} />

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CurrentUser } from '../types'
 import { updateProfile, updatePassword, setSession } from '../api'
+import { useT } from '../i18n'
 
 export default function Profile({
   user,
@@ -11,6 +12,7 @@ export default function Profile({
   onUserChange: (u: CurrentUser) => void
   onLogout: () => void
 }) {
+  const t = useT()
   const [username, setUsername] = useState(user.username)
   const [usernameError, setUsernameError] = useState<string | null>(null)
   const [usernameSuccess, setUsernameSuccess] = useState(false)
@@ -46,7 +48,7 @@ export default function Profile({
     setPasswordError(null)
     setPasswordSuccess(false)
     if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match')
+      setPasswordError(t('passwords_do_not_match'))
       return
     }
     setSavingPassword(true)
@@ -65,14 +67,14 @@ export default function Profile({
 
   return (
     <div className="max-w-lg">
-      <h2 className="text-xl font-semibold mb-8">Account Settings</h2>
+      <h2 className="text-xl font-semibold mb-8">{t('account_settings')}</h2>
 
       {/* Username */}
       <section className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <h3 className="font-medium mb-4">Change Username</h3>
+        <h3 className="font-medium mb-4">{t('change_username')}</h3>
         <form onSubmit={handleUsernameSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Username</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('username')}</label>
             <input
               type="text"
               value={username}
@@ -81,13 +83,13 @@ export default function Profile({
             />
           </div>
           {usernameError && <p className="text-sm text-red-500">{usernameError}</p>}
-          {usernameSuccess && <p className="text-sm text-green-600">Username updated.</p>}
+          {usernameSuccess && <p className="text-sm text-green-600">{t('username_updated')}</p>}
           <button
             type="submit"
             disabled={savingUsername || !username || username === user.username}
             className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
           >
-            {savingUsername ? 'Saving...' : 'Save'}
+            {savingUsername ? t('saving') : t('save')}
           </button>
         </form>
       </section>
@@ -98,16 +100,16 @@ export default function Profile({
           onClick={onLogout}
           className="w-full py-2 px-4 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
         >
-          Sign out
+          {t('nav_sign_out')}
         </button>
       </section>
 
       {/* Password */}
       <section className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="font-medium mb-4">Change Password</h3>
+        <h3 className="font-medium mb-4">{t('change_password')}</h3>
         <form onSubmit={handlePasswordSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Current password</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('current_password')}</label>
             <input
               type="password"
               value={currentPassword}
@@ -117,7 +119,7 @@ export default function Profile({
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">New password</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('new_password')}</label>
             <input
               type="password"
               value={newPassword}
@@ -127,7 +129,7 @@ export default function Profile({
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Confirm new password</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('confirm_new_password')}</label>
             <input
               type="password"
               value={confirmPassword}
@@ -137,13 +139,13 @@ export default function Profile({
             />
           </div>
           {passwordError && <p className="text-sm text-red-500">{passwordError}</p>}
-          {passwordSuccess && <p className="text-sm text-green-600">Password updated.</p>}
+          {passwordSuccess && <p className="text-sm text-green-600">{t('password_updated')}</p>}
           <button
             type="submit"
             disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}
             className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
           >
-            {savingPassword ? 'Saving...' : 'Save'}
+            {savingPassword ? t('saving') : t('save')}
           </button>
         </form>
       </section>

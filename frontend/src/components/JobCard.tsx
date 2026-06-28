@@ -1,17 +1,19 @@
 import { useNavigate } from 'react-router-dom'
 import type { Job } from '../types'
 import StatusActions from './StatusActions'
+import { useT } from '../i18n'
 
 export default function JobCard({ job, onStatusChange, authed = true, onCardClick }: { job: Job; onStatusChange: () => void; authed?: boolean; onCardClick?: () => void }) {
   const navigate = useNavigate()
+  const t = useT()
 
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime()
     const hours = Math.floor(diff / 3600000)
-    if (hours < 1) return 'just now'
-    if (hours < 24) return `${hours}h ago`
+    if (hours < 1) return t('just_now')
+    if (hours < 24) return t('hours_ago', { hours })
     const days = Math.floor(hours / 24)
-    return `${days}d ago`
+    return t('days_ago', { days })
   }
 
   const handleClick = onCardClick ?? (authed ? () => navigate(`/jobs/${job.id}`) : undefined)
@@ -23,7 +25,7 @@ export default function JobCard({ job, onStatusChange, authed = true, onCardClic
     >
       <div className="flex items-start justify-between mb-2">
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-base truncate">{job.role || 'Unknown Role'}</h3>
+          <h3 className="font-semibold text-base truncate">{job.role || t('unknown_role')}</h3>
           {job.company && <p className="text-sm text-gray-600">{job.company}</p>}
         </div>
         {authed && <StatusActions jobId={job.id} currentStatus={job.status} onStatusChange={onStatusChange} />}

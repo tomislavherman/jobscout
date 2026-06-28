@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import NewJobs from './views/NewJobs'
 import AllJobs from './views/AllJobs'
@@ -15,22 +15,30 @@ import { restoreSession, clearTokens } from './api'
 
 export default function App() {
   const [user, setUser] = useState<CurrentUser | null | undefined>(undefined) // undefined = loading
+  const navigate = useNavigate()
 
   useEffect(() => {
     restoreSession().then((u) => setUser(u ?? null))
   }, [])
 
   useEffect(() => {
-    const handler = () => { clearTokens(); setUser(null) }
+    const handler = () => { clearTokens(); setUser(null); navigate('/', { replace: true }) }
     window.addEventListener('auth:logout', handler)
     return () => window.removeEventListener('auth:logout', handler)
   }, [])
 
+  const handleLogin = (u: CurrentUser) => {
+    const redirect = sessionStorage.getItem('postLoginRedirect')
+    sessionStorage.removeItem('postLoginRedirect')
+    if (redirect) navigate(redirect, { replace: true })
+    setUser(u)
+  }
+
   if (user === undefined) return null // brief loading before session check
 
-  if (!user) return <PublicLanding onLogin={setUser} />
+  if (!user) return <PublicLanding onLogin={handleLogin} />
 
-  const handleLogout = () => { clearTokens(); setUser(null) }
+  const handleLogout = () => { clearTokens(); setUser(null); navigate('/', { replace: true }) }
 
   return (
     <Routes>

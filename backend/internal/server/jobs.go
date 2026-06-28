@@ -192,7 +192,7 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 
 	// Only this user's timeline entries
 	rows, err := s.db.Query(
-		"SELECT id, job_id, entry_type, status_from, status_to, title, content, created_at FROM timeline_entries WHERE job_id = ? AND user_id = ? ORDER BY created_at DESC",
+		"SELECT id, job_id, entry_type, status_from, status_to, content, created_at FROM timeline_entries WHERE job_id = ? AND user_id = ? ORDER BY created_at DESC",
 		id, userID,
 	)
 	if err != nil {
@@ -204,7 +204,7 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 	var timeline []model.TimelineEntry
 	for rows.Next() {
 		var te model.TimelineEntry
-		if err := rows.Scan(&te.ID, &te.JobID, &te.EntryType, &te.StatusFrom, &te.StatusTo, &te.Title, &te.Content, &te.CreatedAt); err != nil {
+		if err := rows.Scan(&te.ID, &te.JobID, &te.EntryType, &te.StatusFrom, &te.StatusTo, &te.Content, &te.CreatedAt); err != nil {
 			jsonResponse(w, 500, map[string]string{"error": err.Error()})
 			return
 		}
@@ -278,10 +278,9 @@ func (s *Server) changeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	title := fmt.Sprintf("Status changed: %s → %s", currentStatus, req.Status)
 	if _, err := tx.Exec(
-		"INSERT INTO timeline_entries (job_id, user_id, entry_type, status_from, status_to, title, content) VALUES (?, ?, 'status_change', ?, ?, ?, ?)",
-		id, userID, currentStatus, req.Status, title, req.Notes,
+		"INSERT INTO timeline_entries (job_id, user_id, entry_type, status_from, status_to, content) VALUES (?, ?, 'status_change', ?, ?, ?)",
+		id, userID, currentStatus, req.Status, req.Notes,
 	); err != nil {
 		jsonResponse(w, 500, map[string]string{"error": err.Error()})
 		return
@@ -331,8 +330,8 @@ func (s *Server) addTimelineEntry(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := s.db.Exec(
-		"INSERT INTO timeline_entries (job_id, user_id, entry_type, title, content) VALUES (?, ?, ?, ?, ?)",
-		id, userID, req.EntryType, req.Title, req.Content,
+		"INSERT INTO timeline_entries (job_id, user_id, entry_type, content) VALUES (?, ?, ?, ?)",
+		id, userID, req.EntryType, req.Content,
 	)
 	if err != nil {
 		jsonResponse(w, 500, map[string]string{"error": err.Error()})

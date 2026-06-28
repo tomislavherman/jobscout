@@ -28,7 +28,6 @@ type TimelineEntry struct {
 	EntryType  string    `json:"entry_type"`
 	StatusFrom *string   `json:"status_from,omitempty"`
 	StatusTo   *string   `json:"status_to,omitempty"`
-	Title      *string   `json:"title,omitempty"`
 	Content    *string   `json:"content,omitempty"`
 	CreatedAt  time.Time `json:"created_at"`
 }
@@ -62,6 +61,5 @@ type StatusChangeRequest struct {
 
 type TimelineRequest struct {
 	EntryType string  `json:"entry_type"`
-	Title     *string `json:"title,omitempty"`
 	Content   *string `json:"content,omitempty"`
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { Stats as StatsType, JobStatus } from '../types'
-import { getStats, STATUS_LABELS } from '../api'
+import { getStats } from '../api'
+import { useT } from '../i18n'
+import type { Translations } from '../i18n/en'
 
 const statusOrder: JobStatus[] = ['new', 'applied', 'interviewing', 'offer', 'withdrawn', 'ghosted', 'not_interested']
 
@@ -15,6 +17,7 @@ const statusColors: Record<string, string> = {
 }
 
 export default function Stats() {
+  const t = useT()
   const [stats, setStats] = useState<StatsType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -33,15 +36,15 @@ export default function Stats() {
     fetchStats()
   }, [])
 
-  if (loading) return <p className="text-gray-500">Loading stats...</p>
+  if (loading) return <p className="text-gray-500">{t('loading_stats')}</p>
   if (error) return <p className="text-red-500">{error}</p>
-  if (!stats) return <p className="text-gray-400">No stats available.</p>
+  if (!stats) return <p className="text-gray-400">{t('no_stats_available')}</p>
 
   const total = stats.status_counts.total || 0
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-6">Dashboard</h2>
+      <h2 className="text-xl font-semibold mb-6">{t('dashboard')}</h2>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
         {statusOrder.map((status) => {
@@ -50,7 +53,7 @@ export default function Stats() {
             <div key={status} className="bg-white rounded-lg border border-gray-200 p-4">
               <div className="flex items-center gap-2 mb-1">
                 <div className={`w-3 h-3 rounded-full ${statusColors[status]}`} />
-                <span className="text-sm text-gray-600">{STATUS_LABELS[status]}</span>
+                <span className="text-sm text-gray-600">{t(`status_${status}` as keyof Translations)}</span>
               </div>
               <p className="text-2xl font-bold">{count}</p>
             </div>
@@ -59,9 +62,9 @@ export default function Stats() {
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="font-semibold mb-4">Distribution</h3>
+        <h3 className="font-semibold mb-4">{t('distribution')}</h3>
         {total === 0 ? (
-          <p className="text-sm text-gray-400">No jobs yet.</p>
+          <p className="text-sm text-gray-400">{t('no_jobs_stats')}</p>
         ) : (
           <div className="space-y-2">
             {statusOrder.map((status) => {
@@ -69,7 +72,7 @@ export default function Stats() {
               const pct = total > 0 ? Math.round((count / total) * 100) : 0
               return (
                 <div key={status} className="flex items-center gap-3">
-                  <span className="text-sm text-gray-600 w-28 shrink-0">{STATUS_LABELS[status]}</span>
+                  <span className="text-sm text-gray-600 w-28 shrink-0">{t(`status_${status}` as keyof Translations)}</span>
                   <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${statusColors[status]}`}
