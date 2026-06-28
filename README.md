@@ -132,6 +132,7 @@ make set-auth   # generates JWT_SECRET and writes it to .env
 #   ANTHROPIC_API_KEY=<your key>
 #   VITE_BASE_PATH=/jobscout/   # if serving at a subpath
 
+cd frontend && npm install && cd ..
 VITE_BASE_PATH=/jobscout/ make build   # omit VITE_BASE_PATH if serving at root
 ```
 
