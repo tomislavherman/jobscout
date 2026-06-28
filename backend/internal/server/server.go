@@ -72,6 +72,7 @@ func (s *Server) routes() http.Handler {
 			r.Post("/admin/sync/{sourceId}", s.triggerSync)
 			r.Put("/admin/sources/{sourceId}/settings", s.adminUpdateSourceSettings)
 			r.Get("/admin/source-requests", s.adminListSourceRequests)
+			r.Post("/admin/jobs/{id}/hide", s.hideJob)
 		})
 	})
 

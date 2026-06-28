@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import type { Job, TimelineEntry } from '../types'
-import { getJob, addTimelineEntry } from '../api'
+import type { Job, TimelineEntry, CurrentUser } from '../types'
+import { getJob, addTimelineEntry, hideJob } from '../api'
 import StatusActions from '../components/StatusActions'
 import Timeline from '../components/Timeline'
 import { useT } from '../i18n'
 
-export default function JobDetail() {
+export default function JobDetail({ currentUser }: { currentUser: CurrentUser }) {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const t = useT()
@@ -14,6 +14,19 @@ export default function JobDetail() {
   const [timeline, setTimeline] = useState<TimelineEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [confirmHide, setConfirmHide] = useState(false)
+  const [hiding, setHiding] = useState(false)
+
+  const handleHide = async () => {
+    if (!job) return
+    setHiding(true)
+    try {
+      await hideJob(job.id)
+      navigate(-1)
+    } finally {
+      setHiding(false)
+    }
+  }
 
   const [showAddEntry, setShowAddEntry] = useState(false)
   const [entryType, setEntryType] = useState<string>('interview')
@@ -69,12 +82,41 @@ export default function JobDetail() {
 
   return (
     <div className="max-w-3xl">
-      <button
-        onClick={() => navigate(-1)}
-        className="text-sm text-gray-500 hover:text-gray-700 mb-4"
-      >
-        {t('back')}
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => navigate(-1)}
+          className="text-sm text-gray-500 hover:text-gray-700"
+        >
+          {t('back')}
+        </button>
+        {currentUser.role === 'admin' && (
+          confirmHide ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">{t('hide_listing_confirm')}</span>
+              <button
+                onClick={handleHide}
+                disabled={hiding}
+                className="px-3 py-1 text-sm rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {hiding ? t('hiding') : t('confirm')}
+              </button>
+              <button
+                onClick={() => setConfirmHide(false)}
+                className="px-3 py-1 text-sm rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+              >
+                {t('cancel')}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmHide(true)}
+              className="px-3 py-1 text-sm rounded bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+            >
+              {t('hide_listing')}
+            </button>
+          )
+        )}
+      </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         <div className="flex items-start justify-between mb-4">

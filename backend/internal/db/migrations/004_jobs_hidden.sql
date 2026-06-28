@@ -1,0 +1,2 @@
+ALTER TABLE jobs ADD COLUMN hidden TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE jobs ADD INDEX idx_jobs_hidden (hidden);

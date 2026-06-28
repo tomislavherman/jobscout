@@ -79,7 +79,8 @@ func (s *Server) listPublicJobs(w http.ResponseWriter, r *http.Request) {
 		       'new' as status, j.published_at, j.created_at, j.updated_at,
 		       COALESCE(j.published_at, j.created_at) as sort_time
 		FROM jobs j
-		WHERE COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
+		WHERE j.hidden = 0
+		AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
 	var args []any
 	if cursorTime != nil {
 		query += " AND (COALESCE(j.published_at, j.created_at) < ? OR (COALESCE(j.published_at, j.created_at) = ? AND j.id < ?))"
@@ -173,7 +174,8 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 		FROM jobs j
 		LEFT JOIN user_jobs uj ON j.id = uj.job_id AND uj.user_id = ?
 		LEFT JOIN user_source_settings uss ON j.source_id = uss.source_id AND uss.user_id = ?
-		WHERE (
+		WHERE j.hidden = 0
+		AND (
 			uj.job_id IS NOT NULL
 			OR (
 				COALESCE(uss.enabled, 1) = 1
@@ -273,7 +275,7 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 		       j.published_at, j.created_at, j.updated_at
 		FROM jobs j
 		LEFT JOIN user_jobs uj ON j.id = uj.job_id AND uj.user_id = ?
-		WHERE j.id = ?`,
+		WHERE j.id = ? AND j.hidden = 0`,
 		userID, id,
 	).Scan(&j.ID, &j.SourceID, &j.ExternalID, &j.URL, &j.Role, &j.Company, &j.Location, &j.RemoteType, &j.Residency, &j.EmploymentType, &j.Salary, &j.RawText, &j.Status, &j.PublishedAt, &j.CreatedAt, &j.UpdatedAt)
 	if err == nil {
@@ -457,7 +459,8 @@ func (s *Server) getStats(w http.ResponseWriter, r *http.Request) {
 		FROM jobs j
 		LEFT JOIN user_jobs uj ON j.id = uj.job_id AND uj.user_id = ?
 		LEFT JOIN user_source_settings uss ON j.source_id = uss.source_id AND uss.user_id = ?
-		WHERE (
+		WHERE j.hidden = 0
+		AND (
 			uj.job_id IS NOT NULL
 			OR (
 				COALESCE(uss.enabled, 1) = 1
@@ -502,6 +505,19 @@ func (s *Server) getStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, 200, stats)
+}
+
+func (s *Server) hideJob(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonResponse(w, 400, map[string]string{"error": "invalid id"})
+		return
+	}
+	if _, err := s.db.Exec("UPDATE jobs SET hidden = 1 WHERE id = ?", id); err != nil {
+		jsonResponse(w, 500, map[string]string{"error": err.Error()})
+		return
+	}
+	jsonResponse(w, 200, map[string]string{"status": "ok"})
 }
 
 func decodeJSON(r *http.Request, v any) error {

@@ -140,6 +140,10 @@ export function getJob(id: number): Promise<{ job: Job; timeline: TimelineEntry[
   return fetchJSON(`/jobs/${id}`)
 }
 
+export function hideJob(id: number): Promise<void> {
+  return fetchJSON(`/admin/jobs/${id}/hide`, { method: 'POST' })
+}
+
 export function changeStatus(id: number, status: string, notes?: string): Promise<void> {
   return fetchJSON(`/jobs/${id}/status`, {
     method: 'POST',

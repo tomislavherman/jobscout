@@ -46,7 +46,7 @@ export default function App() {
         <Route index element={<Navigate to="/new" replace />} />
         <Route path="/new" element={<NewJobs />} />
         <Route path="/all" element={<AllJobs />} />
-        <Route path="/jobs/:id" element={<JobDetail />} />
+        <Route path="/jobs/:id" element={<JobDetail currentUser={user} />} />
         <Route path="/sources" element={<Sources />} />
         <Route path="/stats" element={<Stats />} />
         <Route path="/profile" element={<Profile user={user} onUserChange={setUser} onLogout={handleLogout} />} />

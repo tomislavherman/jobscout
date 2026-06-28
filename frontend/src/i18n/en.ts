@@ -47,7 +47,7 @@ const _en = {
   status_rejected: 'Rejected',
   status_withdrawn: 'Withdrawn',
   status_ghosted: 'Ghosted',
-  status_not_interested: 'Not Interested',
+  status_not_interested: 'Not for me',
 
   // Job detail
   back: '← Back',
@@ -173,10 +173,10 @@ const _en = {
   distribution: 'Distribution',
   no_jobs_stats: 'No jobs yet.',
 
-  // NotInterestedModal
-  mark_not_interested: 'Mark as Not Interested',
-  not_interested_reason: 'Optional: add a reason for your records.',
-  not_interested_placeholder: 'Why are you not interested?',
+  // Admin actions
+  hide_listing: 'Hide listing',
+  hide_listing_confirm: 'Hide this listing from all users?',
+  hiding: 'Hiding...',
 
   // Language selector
   language: 'Language',

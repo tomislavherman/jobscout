@@ -49,7 +49,7 @@ export const hr: Translations = {
   status_rejected: 'Odbijeno',
   status_withdrawn: 'Povučeno',
   status_ghosted: 'Ghosted',
-  status_not_interested: 'Nije me zanimalo',
+  status_not_interested: 'Nije za mene',
 
   // Job detail
   back: '← Natrag',
@@ -175,10 +175,10 @@ export const hr: Translations = {
   distribution: 'Raspodjela',
   no_jobs_stats: 'Nema oglasa.',
 
-  // NotInterestedModal
-  mark_not_interested: 'Označi kao nezainteresiran',
-  not_interested_reason: 'Neobavezno: dodaj razlog za evidenciju.',
-  not_interested_placeholder: 'Zašto te ne zanima?',
+  // Admin actions
+  hide_listing: 'Sakrij oglas',
+  hide_listing_confirm: 'Sakriti ovaj oglas od svih korisnika?',
+  hiding: 'Sakrivanje...',
 
   // Language selector
   language: 'Jezik',

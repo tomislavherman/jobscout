@@ -3,7 +3,6 @@ import { changeStatus } from '../api'
 import type { JobStatus } from '../types'
 import { useT } from '../i18n'
 import type { Translations } from '../i18n/en'
-import NotInterestedModal from './NotInterestedModal'
 
 const ALL_STATUSES: JobStatus[] = [
   'new', 'saved', 'applied', 'interviewing', 'offer', 'rejected', 'withdrawn', 'ghosted', 'not_interested',
@@ -32,7 +31,6 @@ export default function StatusActions({
 }) {
   const t = useT()
   const [open, setOpen] = useState(false)
-  const [showNotInterested, setShowNotInterested] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -47,22 +45,8 @@ export default function StatusActions({
   const handleSelect = async (status: string) => {
     setOpen(false)
     if (status === currentStatus) return
-    if (status === 'not_interested') {
-      setShowNotInterested(true)
-      return
-    }
     try {
       await changeStatus(jobId, status)
-      onStatusChange()
-    } catch (err) {
-      console.error('Failed to change status:', err)
-    }
-  }
-
-  const handleNotInterestedConfirm = async (notes: string) => {
-    setShowNotInterested(false)
-    try {
-      await changeStatus(jobId, 'not_interested', notes || undefined)
       onStatusChange()
     } catch (err) {
       console.error('Failed to change status:', err)
@@ -102,12 +86,6 @@ export default function StatusActions({
         )}
       </div>
 
-      {showNotInterested && (
-        <NotInterestedModal
-          onSubmit={handleNotInterestedConfirm}
-          onClose={() => setShowNotInterested(false)}
-        />
-      )}
     </>
   )
 }
