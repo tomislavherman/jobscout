@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import type { Job } from '../types'
 import { listJobs } from '../api'
 import JobCard from '../components/JobCard'
-import PullToRefresh from '../components/PullToRefresh'
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 import { useT } from '../i18n'
 
@@ -51,8 +50,7 @@ export default function NewJobs() {
   if (error) return <p className="text-red-500">{error}</p>
 
   return (
-    <PullToRefresh onRefresh={fetchJobs}>
-      <div>
+    <div>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">{t('new_listings')}</h2>
           {jobs.length > 0 && (
@@ -90,7 +88,6 @@ export default function NewJobs() {
             )}
           </>
         )}
-      </div>
-    </PullToRefresh>
+    </div>
   )
 }

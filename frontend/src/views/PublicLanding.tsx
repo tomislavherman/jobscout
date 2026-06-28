@@ -6,7 +6,6 @@ import JobCard from '../components/JobCard'
 import Login from './Login'
 import Signup from './Signup'
 import PublicJobDetail from './PublicJobDetail'
-import PullToRefresh from '../components/PullToRefresh'
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 import About from './About'
 import { useT } from '../i18n'
@@ -147,7 +146,7 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
     return (
       <div className="flex h-dvh">
         <PublicSidebar view={view} onNav={handleNav} onSignIn={() => openAuthModal('login')} />
-        <main className="flex-1 overflow-y-auto overscroll-y-none p-4 lg:p-6 pb-20 lg:pb-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
           <About />
         </main>
         {overlay}
@@ -159,7 +158,7 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
     return (
       <div className="flex h-dvh">
         <PublicSidebar view={view} onNav={handleNav} onSignIn={() => openAuthModal('login')} />
-        <main className="flex-1 overflow-y-auto overscroll-y-none p-4 lg:p-6 pb-20 lg:pb-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
           <PublicJobDetail
             jobId={selectedJobId}
             onBack={() => handleNav('jobs')}
@@ -174,8 +173,8 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
   return (
     <div className="flex h-screen">
       <PublicSidebar view={view} onNav={handleNav} onSignIn={() => openAuthModal('login')} />
-      <main className="flex-1 overflow-y-auto overscroll-y-none p-4 lg:p-6 pb-20 lg:pb-6">
-        <PullToRefresh onRefresh={loadJobs}>
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
+        <div>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">{t('job_listings')}</h2>
             {!loading && jobs.length > 0 && (
@@ -221,7 +220,7 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
               )}
             </>
           )}
-        </PullToRefresh>
+        </div>
       </main>
       {overlay}
     </div>

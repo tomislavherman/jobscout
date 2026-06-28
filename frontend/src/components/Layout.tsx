@@ -60,7 +60,7 @@ export default function Layout({ user, onLogout }: { user: CurrentUser; onLogout
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto overscroll-y-none p-4 lg:p-6 pb-20 lg:pb-6">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
         <Outlet />
       </main>
 

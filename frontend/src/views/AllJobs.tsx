@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import type { Job, JobStatus } from '../types'
 import { listJobs } from '../api'
 import JobCard from '../components/JobCard'
-import PullToRefresh from '../components/PullToRefresh'
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 import { useT } from '../i18n'
 
@@ -64,8 +63,7 @@ export default function AllJobs() {
   const sentinelRef = useInfiniteScroll(loadMore, hasMore && !loadingMore)
 
   return (
-    <PullToRefresh onRefresh={fetchJobs}>
-      <div>
+    <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">{t('all_listings')}</h2>
           {!loading && jobs.length > 0 && (
@@ -119,7 +117,6 @@ export default function AllJobs() {
             )}
           </>
         )}
-      </div>
-    </PullToRefresh>
+    </div>
   )
 }
