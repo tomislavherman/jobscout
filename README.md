@@ -139,62 +139,22 @@ VITE_BASE_PATH=/jobscout/ make build   # omit VITE_BASE_PATH if serving at root
 
 ### Run as a systemd service
 
-Create `/etc/systemd/system/jobscout.service`:
-
-```ini
-[Unit]
-Description=JobScout
-After=network.target mysql.service
-
-[Service]
-Type=simple
-User=ubuntu
-WorkingDirectory=/home/ubuntu/jobscout
-EnvironmentFile=/home/ubuntu/jobscout/.env
-ExecStart=/home/ubuntu/jobscout/jobscout
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
+A `jobscout.service` file is included in the repo:
 
 ```bash
+sudo cp jobscout.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now jobscout
 sudo systemctl status jobscout
 ```
 
-### Nginx reverse proxy
+### HAProxy reverse proxy
+
+A `haproxy.cfg` is included in the repo:
 
 ```bash
-sudo apt install -y nginx
-```
-
-Create `/etc/nginx/sites-available/jobscout`:
-
-```nginx
-server {
-    listen 80;
-    server_name example.com;
-
-    location /jobscout/ {
-        proxy_pass http://127.0.0.1:8080/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-}
-```
-
-```bash
-sudo ln -s /etc/nginx/sites-available/jobscout /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-For HTTPS, use Certbot:
-
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d example.com
+sudo apt install -y haproxy
+sudo cp haproxy.cfg /etc/haproxy/haproxy.cfg
+sudo systemctl enable --now haproxy
+sudo systemctl reload haproxy
 ```
