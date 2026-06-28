@@ -1,0 +1,14 @@
+version: "3.8"
+services:
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: jobscout_dev
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:

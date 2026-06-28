@@ -1,0 +1,8 @@
+.env
+jobscout
+backend/setauth
+frontend/dist
+frontend/node_modules/
+backend/internal/server/static/assets/
+backend/internal/server/static/index.html
+*.tsbuildinfo
