@@ -1,6 +1,6 @@
 import type { Job, TimelineEntry, Stats, JobStatus, Source, CurrentUser, User } from './types'
 
-const BASE = '/api'
+const BASE = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api`
 
 // --- Token + user storage ---
 
