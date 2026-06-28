@@ -24,6 +24,7 @@ jobscout/
 │   └── src/
 │       ├── api.ts        all fetch calls, token management
 │       ├── types.ts      shared TS types (JobStatus etc.)
+│       ├── i18n/         en.ts (source of truth + Translations type), hr.ts, index.tsx (provider + hooks)
 │       ├── views/        page-level components
 │       ├── components/   reusable UI components
 │       └── hooks/        useInfiniteScroll
@@ -127,7 +128,12 @@ Current sources:
 - Infinite scroll (mobile only) via `useInfiniteScroll` hook — uses `IntersectionObserver` on a sentinel div, only triggers when `window.matchMedia('(max-width: 1023px)').matches`.
 - Pull-to-refresh via `PullToRefresh` component — attaches touch events to `document`, checks `document.querySelector('main')?.scrollTop` to detect top of scroll.
 - Public landing (`PublicLanding.tsx`) uses two separate state fields: `view` (background content) and `modal` (overlay). Changing `modal` to `'login'` or `'signup'` never changes `view`, so the background stays put when the auth overlay opens.
+- Public mode URL routing uses `window.history.pushState` (not React Router) since `PublicLanding` renders outside `<Routes>`. `handleNav` pushes `/` or `/about`; `openJob` pushes `/jobs/:id`. A `popstate` listener and a mount effect keep view state in sync with the address bar.
+- Post-login redirect: `openAuthModal` saves the current job URL to `sessionStorage` before opening the modal. `handleLogin` in `App.tsx` reads and clears it, calls `navigate(redirect)` **before** `setUser` so React Router's URL is correct when `<Routes>` first renders — avoids a race with the index `<Navigate to="/new">` route.
+- i18n: no library. `src/i18n/en.ts` defines the `Translations` type (via `{ [K in keyof typeof _en]: string }`) and is the single source of truth for keys. `hr.ts` is typed as `Translations`. `useT()` returns a `t(key, vars?)` function; `{varName}` in strings is replaced by the `vars` object. Language is stored in `localStorage` under `jobscout_lang`. `LanguageToggle` is placed in both sidebar bottoms (desktop) and mobile nav. When adding a string: add to `en.ts` first, then `hr.ts`.
 - Modal forms (`Login`, `Signup`) accept a `modal?: boolean` prop. When true they return only the card; when false they wrap it in a full-screen centered container.
+- Selecting `not_interested` in `StatusActions` opens `NotInterestedModal` (optional reason text) before committing the status change.
+- Timeline entries have no `title` field. Entry type is shown as a neutral gray label badge. `entry_type` values: `status_change | note | interview | prep | feedback | reminder`.
 - Dropdowns (max age, batch size) use a custom pill-style component pattern (see `BatchSizeDropdown` in `Admin.tsx` or `MaxAgeDropdown` in `Sources.tsx`) — not native `<select>`.
 
 ---
@@ -140,3 +146,5 @@ Current sources:
 - **LLM for job parsing**: each HN comment is sent to Claude to extract structured fields (role, company, location, remote type, salary, etc.). Raw text is also stored.
 - **Separate access/refresh token flow**: `api.ts` retries any 401 with a token refresh before propagating the error, so token expiry is invisible to the user in normal usage.
 - **Pull-to-refresh on document, not the scroll container**: the scrollable element is `<main>` but touch events are attached to `document` to avoid capture conflicts. Scroll position is checked via `document.querySelector('main')?.scrollTop`.
+- **i18n without a library**: a private `_en` object in `en.ts` serves as the canonical key registry; the `Translations` type is derived from it so TypeScript enforces completeness of every translation file. Template variables use `{varName}` syntax, replaced at runtime by `t(key, vars)`.
+- **No timeline title**: the `title` column was removed from `timeline_entries` (migration `002_drop_timeline_title.sql`). Entry type is the only label shown.

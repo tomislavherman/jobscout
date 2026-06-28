@@ -6,9 +6,12 @@ Job listings aggregator that pulls from community sources, parses them into stru
 
 - Pulls job listings from Hacker News hiring threads
 - Extracts structured data — role, company, location, salary, remote policy
+- Public browsing with shareable job URLs (`/jobs/:id`) — no account required
 - Application tracking with statuses (New, Saved, Applied, Interviewing, Offer, Rejected, and more)
+- Per-application timeline: interview notes, prep, feedback, reminders
 - Per-source max age filter
 - Mobile-friendly with infinite scroll and pull-to-refresh
+- English / Croatian UI language toggle (persisted per browser)
 - Admin panel for managing users, sync settings, and source suggestions
 
 ## Tech stack
