@@ -20,10 +20,14 @@ func (s *Server) listSources(w http.ResponseWriter, r *http.Request) {
 	for _, src := range Sources {
 		var enabledInt int8 = 1
 		var maxAgeDays *int
-		s.db.QueryRow(
+		if err := s.db.QueryRow(
 			"SELECT enabled, max_age_days FROM user_source_settings WHERE user_id = ? AND source_id = ?",
 			userID, src.ID,
-		).Scan(&enabledInt, &maxAgeDays)
+		).Scan(&enabledInt, &maxAgeDays); err != nil {
+			// No row — default to 30 days
+			n := 30
+			maxAgeDays = &n
+		}
 
 		result = append(result, map[string]any{
 			"id":           src.ID,
