@@ -97,14 +97,6 @@ location /jobscout/ {
 }
 ```
 
-**Caddy:**
-```
-handle /jobscout/* {
-    uri strip_prefix /jobscout
-    reverse_proxy localhost:8080
-}
-```
-
 The Go server itself needs no changes — it always listens on `/` and the proxy handles the prefix.
 
 ---
