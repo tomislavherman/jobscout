@@ -109,10 +109,8 @@ The Go server itself needs no changes — it always listens on `/` and the proxy
 # make
 sudo apt install -y make
 
-# Go (adjust version as needed)
-wget https://go.dev/dl/go1.25.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.25.linux-amd64.tar.gz
-echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc && source ~/.bashrc
+# Go
+sudo snap install go --classic
 
 # Node.js 20
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
