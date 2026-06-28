@@ -87,17 +87,7 @@ VITE_BASE_PATH=/jobscout/ make build
 
 Then configure your reverse proxy to strip the prefix before forwarding to the Go server.
 
-**Nginx:**
-```nginx
-location /jobscout/ {
-    proxy_pass http://127.0.0.1:8080/;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-}
-```
-
-The Go server itself needs no changes — it always listens on `/` and the proxy handles the prefix.
+The `haproxy.cfg` in the repo is pre-configured for this. The Go server itself needs no changes — it always listens on `/` and HAProxy handles the prefix stripping.
 
 ---
 
