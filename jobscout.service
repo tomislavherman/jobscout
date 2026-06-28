@@ -1,0 +1,15 @@
+[Unit]
+Description=JobScout job listings aggregator
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/jobscout
+EnvironmentFile=/home/ubuntu/jobscout/.env
+ExecStart=/home/ubuntu/jobscout/jobscout
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
