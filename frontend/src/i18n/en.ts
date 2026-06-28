@@ -24,6 +24,7 @@ const _en = {
   new_listings: 'New Listings',
   all_listings: 'All Listings',
   showing_of: 'Showing {shown} of {total}',
+  showing_count: 'Showing {count}',
   loading_jobs: 'Loading jobs...',
   loading_new_jobs: 'Loading new jobs...',
   no_jobs_yet: 'No jobs yet',

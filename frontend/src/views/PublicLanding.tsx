@@ -57,19 +57,35 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
   const navigate = useNavigate()
   const location = useLocation()
   const [jobs, setJobs] = useState<Job[]>([])
+  const [cursor, setCursor] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [view, setView] = useState<View>('jobs')
   const [modal, setModal] = useState<Modal>(null)
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
-  const [shown, setShown] = useState(18)
-  const loadMore = () => setShown((s) => s + 18)
-  const sentinelRef = useInfiniteScroll(loadMore, shown < jobs.length)
 
   const loadJobs = async () => {
-    const data = await listPublicJobs()
-    setJobs(data)
-    setShown(18)
+    const page = await listPublicJobs()
+    setJobs(page.jobs)
+    setCursor(page.next_cursor)
+    setHasMore(page.next_cursor !== null)
   }
+
+  const loadMore = async () => {
+    if (!cursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const page = await listPublicJobs(cursor)
+      setJobs(prev => [...prev, ...page.jobs])
+      setCursor(page.next_cursor)
+      setHasMore(page.next_cursor !== null)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  const sentinelRef = useInfiniteScroll(loadMore, hasMore && !loadingMore)
 
   useEffect(() => {
     loadJobs().catch(console.error).finally(() => setLoading(false))
@@ -164,7 +180,7 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
             <h2 className="text-xl font-semibold">{t('job_listings')}</h2>
             {!loading && jobs.length > 0 && (
               <span className="hidden lg:inline text-sm text-gray-400">
-                {t('showing_of', { shown: Math.min(shown, jobs.length), total: jobs.length })}
+                {t('showing_count', { count: jobs.length })}
               </span>
             )}
           </div>
@@ -179,7 +195,7 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {jobs.slice(0, shown).map((job) => (
+                {jobs.map((job) => (
                   <JobCard
                     key={job.id}
                     job={job}
@@ -189,15 +205,16 @@ export default function PublicLanding({ onLogin }: { onLogin: (user: CurrentUser
                   />
                 ))}
               </div>
-              {shown < jobs.length && (
+              {hasMore && (
                 <div className="mt-8">
                   <div ref={sentinelRef} />
                   <div className="hidden lg:flex justify-center">
                     <button
                       onClick={loadMore}
-                      className="px-6 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      disabled={loadingMore}
+                      className="px-6 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
                     >
-                      {t('load_more')}
+                      {loadingMore ? t('loading') : t('load_more')}
                     </button>
                   </div>
                 </div>

@@ -26,6 +26,7 @@ export const hr: Translations = {
   new_listings: 'Novi oglasi',
   all_listings: 'Svi oglasi',
   showing_of: 'Prikazano {shown} od {total}',
+  showing_count: 'Prikazano {count}',
   loading_jobs: 'Učitavanje oglasa...',
   loading_new_jobs: 'Učitavanje novih oglasa...',
   no_jobs_yet: 'Nema oglasa',

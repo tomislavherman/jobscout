@@ -113,15 +113,19 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
 
 // --- Jobs API ---
 
-export function listJobs(params?: { status?: string; source?: string }): Promise<Job[]> {
+export type JobsPage = { jobs: Job[]; next_cursor: string | null }
+
+export function listJobs(params?: { status?: string; source?: string; cursor?: string }): Promise<JobsPage> {
   const qs = new URLSearchParams()
   if (params?.status) qs.set('status', params.status)
   if (params?.source) qs.set('source', params.source)
+  if (params?.cursor) qs.set('cursor', params.cursor)
   return fetchJSON(`/jobs?${qs}`)
 }
 
-export async function listPublicJobs(): Promise<Job[]> {
-  const res = await fetch(`${BASE}/public/jobs`)
+export async function listPublicJobs(cursor?: string): Promise<JobsPage> {
+  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+  const res = await fetch(`${BASE}/public/jobs${qs}`)
   if (!res.ok) throw new Error('Failed to load jobs')
   return res.json()
 }

@@ -2,10 +2,13 @@ package server
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"jobscout/internal/model"
@@ -48,12 +51,43 @@ func (s *Server) getPublicJob(w http.ResponseWriter, r *http.Request) {
 
 // listPublicJobs serves the unauthenticated public feed — no user context, status always 'new'.
 func (s *Server) listPublicJobs(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.db.Query(`
+	limit := 18
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
+		limit = l
+	}
+
+	var cursorTime *time.Time
+	var cursorID *int64
+	if cursorStr := r.URL.Query().Get("cursor"); cursorStr != "" {
+		if b, err := base64.StdEncoding.DecodeString(cursorStr); err == nil {
+			parts := strings.SplitN(string(b), "|", 2)
+			if len(parts) == 2 {
+				if ms, err := strconv.ParseInt(parts[0], 10, 64); err == nil {
+					if id, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
+						t := time.UnixMilli(ms).UTC()
+						cursorTime = &t
+						cursorID = &id
+					}
+				}
+			}
+		}
+	}
+
+	query := `
 		SELECT j.id, j.source_id, j.external_id, j.url, j.role, j.company, j.location,
 		       j.remote_type, j.residency, j.employment_type, j.salary, j.raw_text,
-		       'new' as status, j.published_at, j.created_at, j.updated_at
+		       'new' as status, j.published_at, j.created_at, j.updated_at,
+		       COALESCE(j.published_at, j.created_at) as sort_time
 		FROM jobs j
-		ORDER BY COALESCE(j.published_at, j.created_at) DESC`)
+		WHERE COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
+	var args []any
+	if cursorTime != nil {
+		query += " AND (COALESCE(j.published_at, j.created_at) < ? OR (COALESCE(j.published_at, j.created_at) = ? AND j.id < ?))"
+		args = append(args, cursorTime, cursorTime, *cursorID)
+	}
+	query += fmt.Sprintf(" ORDER BY sort_time DESC, j.id DESC LIMIT %d", limit+1)
+
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		jsonResponse(w, 500, map[string]string{"error": err.Error()})
 		return
@@ -61,9 +95,11 @@ func (s *Server) listPublicJobs(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	var jobs []model.Job
+	var sortTimes []time.Time
 	for rows.Next() {
 		var j model.Job
-		if err := rows.Scan(&j.ID, &j.SourceID, &j.ExternalID, &j.URL, &j.Role, &j.Company, &j.Location, &j.RemoteType, &j.Residency, &j.EmploymentType, &j.Salary, &j.RawText, &j.Status, &j.PublishedAt, &j.CreatedAt, &j.UpdatedAt); err != nil {
+		var sortTime time.Time
+		if err := rows.Scan(&j.ID, &j.SourceID, &j.ExternalID, &j.URL, &j.Role, &j.Company, &j.Location, &j.RemoteType, &j.Residency, &j.EmploymentType, &j.Salary, &j.RawText, &j.Status, &j.PublishedAt, &j.CreatedAt, &j.UpdatedAt, &sortTime); err != nil {
 			jsonResponse(w, 500, map[string]string{"error": err.Error()})
 			return
 		}
@@ -71,11 +107,27 @@ func (s *Server) listPublicJobs(w http.ResponseWriter, r *http.Request) {
 			j.SourceName = src.Name
 		}
 		jobs = append(jobs, j)
+		sortTimes = append(sortTimes, sortTime)
 	}
-	if jobs == nil {
-		jobs = []model.Job{}
+
+	var nextCursor *string
+	if len(jobs) > limit {
+		jobs = jobs[:limit]
+		last := jobs[limit-1]
+		raw := fmt.Sprintf("%d|%d", sortTimes[limit-1].UnixMilli(), last.ID)
+		encoded := base64.StdEncoding.EncodeToString([]byte(raw))
+		nextCursor = &encoded
 	}
-	jsonResponse(w, 200, jobs)
+
+	type jobsPage struct {
+		Jobs       []model.Job `json:"jobs"`
+		NextCursor *string     `json:"next_cursor"`
+	}
+	page := jobsPage{Jobs: jobs, NextCursor: nextCursor}
+	if page.Jobs == nil {
+		page.Jobs = []model.Job{}
+	}
+	jsonResponse(w, 200, page)
 }
 
 // listJobs returns all jobs with the current user's personal status (defaults to 'new').
@@ -90,11 +142,34 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
 	sourceID := r.URL.Query().Get("source")
 
+	limit := 18
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
+		limit = l
+	}
+
+	var cursorTime *time.Time
+	var cursorID *int64
+	if cursorStr := r.URL.Query().Get("cursor"); cursorStr != "" {
+		if b, err := base64.StdEncoding.DecodeString(cursorStr); err == nil {
+			parts := strings.SplitN(string(b), "|", 2)
+			if len(parts) == 2 {
+				if ms, err := strconv.ParseInt(parts[0], 10, 64); err == nil {
+					if id, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
+						t := time.UnixMilli(ms).UTC()
+						cursorTime = &t
+						cursorID = &id
+					}
+				}
+			}
+		}
+	}
+
 	query := `
 		SELECT j.id, j.source_id, j.external_id, j.url, j.role, j.company, j.location,
 		       j.remote_type, j.residency, j.employment_type, j.salary, j.raw_text,
 		       COALESCE(uj.status, 'new') as status,
-		       j.published_at, j.created_at, j.updated_at
+		       j.published_at, j.created_at, j.updated_at,
+		       COALESCE(j.published_at, j.created_at) as sort_time
 		FROM jobs j
 		LEFT JOIN user_jobs uj ON j.id = uj.job_id AND uj.user_id = ?
 		LEFT JOIN user_source_settings uss ON j.source_id = uss.source_id AND uss.user_id = ?
@@ -102,7 +177,11 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 			uj.job_id IS NOT NULL
 			OR (
 				COALESCE(uss.enabled, 1) = 1
-				AND (uss.max_age_days IS NULL OR COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL uss.max_age_days DAY))
+				AND (
+					(uss.user_id IS NULL AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY))
+					OR (uss.user_id IS NOT NULL AND uss.max_age_days IS NULL)
+					OR (uss.max_age_days IS NOT NULL AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL uss.max_age_days DAY))
+				)
 			)
 		)`
 	args := []any{userID, userID}
@@ -122,8 +201,12 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 			args = append(args, sid)
 		}
 	}
+	if cursorTime != nil {
+		query += " AND (COALESCE(j.published_at, j.created_at) < ? OR (COALESCE(j.published_at, j.created_at) = ? AND j.id < ?))"
+		args = append(args, cursorTime, cursorTime, *cursorID)
+	}
 
-	query += " ORDER BY COALESCE(j.published_at, j.created_at) DESC"
+	query += fmt.Sprintf(" ORDER BY sort_time DESC, j.id DESC LIMIT %d", limit+1)
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
@@ -133,9 +216,11 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	var jobs []model.Job
+	var sortTimes []time.Time
 	for rows.Next() {
 		var j model.Job
-		if err := rows.Scan(&j.ID, &j.SourceID, &j.ExternalID, &j.URL, &j.Role, &j.Company, &j.Location, &j.RemoteType, &j.Residency, &j.EmploymentType, &j.Salary, &j.RawText, &j.Status, &j.PublishedAt, &j.CreatedAt, &j.UpdatedAt); err != nil {
+		var sortTime time.Time
+		if err := rows.Scan(&j.ID, &j.SourceID, &j.ExternalID, &j.URL, &j.Role, &j.Company, &j.Location, &j.RemoteType, &j.Residency, &j.EmploymentType, &j.Salary, &j.RawText, &j.Status, &j.PublishedAt, &j.CreatedAt, &j.UpdatedAt, &sortTime); err != nil {
 			jsonResponse(w, 500, map[string]string{"error": err.Error()})
 			return
 		}
@@ -143,11 +228,27 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 			j.SourceName = src.Name
 		}
 		jobs = append(jobs, j)
+		sortTimes = append(sortTimes, sortTime)
 	}
-	if jobs == nil {
-		jobs = []model.Job{}
+
+	var nextCursor *string
+	if len(jobs) > limit {
+		jobs = jobs[:limit]
+		last := jobs[limit-1]
+		raw := fmt.Sprintf("%d|%d", sortTimes[limit-1].UnixMilli(), last.ID)
+		encoded := base64.StdEncoding.EncodeToString([]byte(raw))
+		nextCursor = &encoded
 	}
-	jsonResponse(w, 200, jobs)
+
+	type jobsPage struct {
+		Jobs       []model.Job `json:"jobs"`
+		NextCursor *string     `json:"next_cursor"`
+	}
+	page := jobsPage{Jobs: jobs, NextCursor: nextCursor}
+	if page.Jobs == nil {
+		page.Jobs = []model.Job{}
+	}
+	jsonResponse(w, 200, page)
 }
 
 func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
@@ -360,7 +461,11 @@ func (s *Server) getStats(w http.ResponseWriter, r *http.Request) {
 			uj.job_id IS NOT NULL
 			OR (
 				COALESCE(uss.enabled, 1) = 1
-				AND (uss.max_age_days IS NULL OR COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL uss.max_age_days DAY))
+				AND (
+					(uss.user_id IS NULL AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY))
+					OR (uss.user_id IS NOT NULL AND uss.max_age_days IS NULL)
+					OR (uss.max_age_days IS NOT NULL AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL uss.max_age_days DAY))
+				)
 			)
 		)
 		GROUP BY COALESCE(uj.status, 'new')`,
