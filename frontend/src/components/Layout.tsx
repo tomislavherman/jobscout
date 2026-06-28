@@ -25,7 +25,7 @@ export default function Layout({ user, onLogout }: { user: CurrentUser; onLogout
   ]
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-dvh">
       {/* Sidebar — desktop only */}
       <nav className="hidden lg:flex w-56 bg-gray-900 text-white flex-col p-4 shrink-0">
         <h1 className="text-xl font-bold mb-6 px-2">JobScout</h1>
@@ -60,7 +60,7 @@ export default function Layout({ user, onLogout }: { user: CurrentUser; onLogout
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
+      <main className="flex-1 overflow-y-auto overscroll-y-none p-4 lg:p-6 pb-20 lg:pb-6">
         <Outlet />
       </main>
 
