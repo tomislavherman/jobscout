@@ -5,8 +5,9 @@ import (
 	"log"
 	"time"
 
+	"jobscout/internal/jobs"
 	"jobscout/internal/llm"
-	"jobscout/internal/server"
+	"jobscout/internal/sources"
 )
 
 type Scheduler struct {
@@ -28,7 +29,7 @@ func (s *Scheduler) Start(interval time.Duration) {
 }
 
 func (s *Scheduler) runSyncForSources() {
-	for _, src := range server.Sources {
+	for _, src := range sources.Sources {
 		result, err := s.db.Exec(
 			"INSERT INTO sync_runs (source_id, status) VALUES (?, 'running')",
 			src.ID,
@@ -40,7 +41,7 @@ func (s *Scheduler) runSyncForSources() {
 
 		runID, _ := result.LastInsertId()
 		go func(sid, rid int64) {
-			server.RunSync(s.db, s.llm, sid, rid)
+			jobs.RunSync(s.db, s.llm, sid, rid)
 		}(src.ID, runID)
 	}
 }

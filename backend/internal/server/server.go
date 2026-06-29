@@ -3,7 +3,6 @@ package server
 import (
 	"database/sql"
 	"embed"
-	"encoding/json"
 	"io/fs"
 	"log"
 	"net/http"
@@ -11,24 +10,36 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"jobscout/internal/admin"
+	"jobscout/internal/auth"
+	"jobscout/internal/jobs"
 	"jobscout/internal/llm"
+	"jobscout/internal/sources"
 )
 
 //go:embed static
 var staticFiles embed.FS
 
 type Server struct {
-	db       *sql.DB
-	llm      *llm.Client
-	mux      http.Handler
+	auth    *auth.Handler
+	jobs    *jobs.Handler
+	sources *sources.Handler
+	admin   *admin.Handler
+	mux     http.Handler
 }
 
 func New(db *sql.DB, llmClient *llm.Client) *Server {
-	if os.Getenv("JWT_SECRET") == "" {
+	secret := []byte(os.Getenv("JWT_SECRET"))
+	if len(secret) == 0 {
 		log.Fatal("JWT_SECRET must be set")
 	}
-	s := &Server{db: db, llm: llmClient}
-	s.mux = s.routes()
+	s := &Server{
+		auth:    auth.NewHandler(db, secret),
+		jobs:    jobs.NewHandler(db, llmClient),
+		sources: sources.NewHandler(db),
+		admin:   admin.NewHandler(db, llmClient),
+	}
+	s.mux = s.routes(secret)
 	return s
 }
 
@@ -36,43 +47,43 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-func (s *Server) routes() http.Handler {
+func (s *Server) routes(secret []byte) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(loggingMiddleware)
 	r.Use(corsMiddleware)
 
 	r.Route("/api", func(r chi.Router) {
-		r.Post("/auth/login", s.login)
-		r.Post("/auth/signup", s.signup)
-		r.Post("/auth/refresh", s.refreshToken)
-		r.Get("/public/jobs", s.listPublicJobs)
-		r.Get("/public/jobs/{id}", s.getPublicJob)
-			r.With(optionalAuthMiddleware).Post("/source-requests", s.submitSourceRequest)
+		r.Post("/auth/login", s.auth.Login)
+		r.Post("/auth/signup", s.auth.Signup)
+		r.Post("/auth/refresh", s.auth.RefreshToken)
+		r.Get("/public/jobs", s.jobs.ListPublicJobs)
+		r.Get("/public/jobs/{id}", s.jobs.GetPublicJob)
+		r.With(auth.OptionalAuthMiddleware(secret)).Post("/source-requests", s.sources.SubmitSourceRequest)
 
 		r.Group(func(r chi.Router) {
-			r.Use(authMiddleware)
-			r.Put("/user/profile", s.updateProfile)
-			r.Put("/user/password", s.updatePassword)
-			r.Get("/sources", s.listSources)
-			r.Put("/sources/{id}/settings", s.updateUserSourceSettings)
-			r.Get("/jobs", s.listJobs)
-			r.Get("/jobs/{id}", s.getJob)
-			r.Post("/jobs/{id}/status", s.changeStatus)
-			r.Post("/jobs/{id}/timeline", s.addTimelineEntry)
-			r.Get("/stats", s.getStats)
+			r.Use(auth.AuthMiddleware(secret))
+			r.Put("/user/profile", s.auth.UpdateProfile)
+			r.Put("/user/password", s.auth.UpdatePassword)
+			r.Get("/sources", s.sources.ListSources)
+			r.Put("/sources/{id}/settings", s.sources.UpdateUserSourceSettings)
+			r.Get("/jobs", s.jobs.ListJobs)
+			r.Get("/jobs/{id}", s.jobs.GetJob)
+			r.Post("/jobs/{id}/status", s.jobs.ChangeStatus)
+			r.Post("/jobs/{id}/timeline", s.jobs.AddTimelineEntry)
+			r.Get("/stats", s.jobs.GetStats)
 		})
 
 		r.Group(func(r chi.Router) {
-			r.Use(adminMiddleware)
-			r.Get("/admin/users", s.listUsers)
-			r.Put("/admin/users/{id}/role", s.updateUserRole)
-			r.Get("/admin/sources", s.adminListSources)
-			r.Get("/admin/syncs", s.adminLastSyncs)
-			r.Post("/admin/sync/{sourceId}", s.triggerSync)
-			r.Put("/admin/sources/{sourceId}/settings", s.adminUpdateSourceSettings)
-			r.Get("/admin/source-requests", s.adminListSourceRequests)
-			r.Post("/admin/jobs/{id}/hide", s.hideJob)
+			r.Use(auth.AdminMiddleware(secret))
+			r.Get("/admin/users", s.admin.ListUsers)
+			r.Put("/admin/users/{id}/role", s.admin.UpdateUserRole)
+			r.Get("/admin/sources", s.admin.AdminListSources)
+			r.Get("/admin/syncs", s.admin.AdminLastSyncs)
+			r.Post("/admin/sync/{sourceId}", s.admin.TriggerSync)
+			r.Put("/admin/sources/{sourceId}/settings", s.admin.AdminUpdateSourceSettings)
+			r.Get("/admin/source-requests", s.admin.AdminListSourceRequests)
+			r.Post("/admin/jobs/{id}/hide", s.jobs.HideJob)
 		})
 	})
 
@@ -87,7 +98,6 @@ func (s *Server) routes() http.Handler {
 				return
 			}
 		}
-		// SPA fallback: serve index.html for any unmatched route
 		index, err := staticFiles.ReadFile("static/index.html")
 		if err != nil {
 			http.Error(w, "Not found", http.StatusNotFound)
@@ -98,10 +108,4 @@ func (s *Server) routes() http.Handler {
 	})
 
 	return r
-}
-
-func jsonResponse(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
 }

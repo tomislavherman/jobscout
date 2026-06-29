@@ -1,4 +1,4 @@
-package server
+package jobs
 
 import (
 	"database/sql"
@@ -11,24 +11,29 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"jobscout/internal/model"
+	"jobscout/internal/auth"
+	"jobscout/internal/llm"
+	"jobscout/internal/sources"
 )
 
-func (s *Server) getUserID(username string) (int64, error) {
-	var id int64
-	err := s.db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&id)
-	return id, err
+type Handler struct {
+	db  *sql.DB
+	llm *llm.Client
 }
 
-func (s *Server) getPublicJob(w http.ResponseWriter, r *http.Request) {
+func NewHandler(db *sql.DB, llmClient *llm.Client) *Handler {
+	return &Handler{db: db, llm: llmClient}
+}
+
+func (h *Handler) GetPublicJob(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		jsonResponse(w, 400, map[string]string{"error": "invalid id"})
 		return
 	}
 
-	var j model.Job
-	err = s.db.QueryRow(`
+	var j Job
+	err = h.db.QueryRow(`
 		SELECT j.id, j.source_id, j.external_id, j.url, j.role, j.company, j.location,
 		       j.remote_type, j.residency, j.employment_type, j.salary, j.raw_text,
 		       'new' as status, j.published_at, j.created_at, j.updated_at
@@ -43,14 +48,13 @@ func (s *Server) getPublicJob(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, 500, map[string]string{"error": err.Error()})
 		return
 	}
-	if src := sourceByID(j.SourceID); src != nil {
+	if src := sources.SourceByID(j.SourceID); src != nil {
 		j.SourceName = src.Name
 	}
 	jsonResponse(w, 200, j)
 }
 
-// listPublicJobs serves the unauthenticated public feed — no user context, status always 'new'.
-func (s *Server) listPublicJobs(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ListPublicJobs(w http.ResponseWriter, r *http.Request) {
 	limit := 18
 	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
 		limit = l
@@ -88,23 +92,23 @@ func (s *Server) listPublicJobs(w http.ResponseWriter, r *http.Request) {
 	}
 	query += fmt.Sprintf(" ORDER BY sort_time DESC, j.id DESC LIMIT %d", limit+1)
 
-	rows, err := s.db.Query(query, args...)
+	rows, err := h.db.Query(query, args...)
 	if err != nil {
 		jsonResponse(w, 500, map[string]string{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
 
-	var jobs []model.Job
+	var jobs []Job
 	var sortTimes []time.Time
 	for rows.Next() {
-		var j model.Job
+		var j Job
 		var sortTime time.Time
 		if err := rows.Scan(&j.ID, &j.SourceID, &j.ExternalID, &j.URL, &j.Role, &j.Company, &j.Location, &j.RemoteType, &j.Residency, &j.EmploymentType, &j.Salary, &j.RawText, &j.Status, &j.PublishedAt, &j.CreatedAt, &j.UpdatedAt, &sortTime); err != nil {
 			jsonResponse(w, 500, map[string]string{"error": err.Error()})
 			return
 		}
-		if src := sourceByID(j.SourceID); src != nil {
+		if src := sources.SourceByID(j.SourceID); src != nil {
 			j.SourceName = src.Name
 		}
 		jobs = append(jobs, j)
@@ -121,20 +125,19 @@ func (s *Server) listPublicJobs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type jobsPage struct {
-		Jobs       []model.Job `json:"jobs"`
-		NextCursor *string     `json:"next_cursor"`
+		Jobs       []Job   `json:"jobs"`
+		NextCursor *string `json:"next_cursor"`
 	}
 	page := jobsPage{Jobs: jobs, NextCursor: nextCursor}
 	if page.Jobs == nil {
-		page.Jobs = []model.Job{}
+		page.Jobs = []Job{}
 	}
 	jsonResponse(w, 200, page)
 }
 
-// listJobs returns all jobs with the current user's personal status (defaults to 'new').
-func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
-	claims := claimsFromContext(r)
-	userID, err := s.getUserID(claims.Sub)
+func (h *Handler) ListJobs(w http.ResponseWriter, r *http.Request) {
+	claims := auth.ClaimsFromContext(r)
+	userID, err := auth.GetUserID(h.db, claims.Sub)
 	if err != nil {
 		jsonResponse(w, 500, map[string]string{"error": "could not resolve user"})
 		return
@@ -190,7 +193,6 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 
 	if status != "" {
 		if status == "new" {
-			// Uninteracted jobs (no user_jobs row) count as 'new'
 			query += " AND (uj.status = 'new' OR uj.status IS NULL)"
 		} else {
 			query += " AND uj.status = ?"
@@ -210,23 +212,23 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 
 	query += fmt.Sprintf(" ORDER BY sort_time DESC, j.id DESC LIMIT %d", limit+1)
 
-	rows, err := s.db.Query(query, args...)
+	rows, err := h.db.Query(query, args...)
 	if err != nil {
 		jsonResponse(w, 500, map[string]string{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
 
-	var jobs []model.Job
+	var jobs []Job
 	var sortTimes []time.Time
 	for rows.Next() {
-		var j model.Job
+		var j Job
 		var sortTime time.Time
 		if err := rows.Scan(&j.ID, &j.SourceID, &j.ExternalID, &j.URL, &j.Role, &j.Company, &j.Location, &j.RemoteType, &j.Residency, &j.EmploymentType, &j.Salary, &j.RawText, &j.Status, &j.PublishedAt, &j.CreatedAt, &j.UpdatedAt, &sortTime); err != nil {
 			jsonResponse(w, 500, map[string]string{"error": err.Error()})
 			return
 		}
-		if src := sourceByID(j.SourceID); src != nil {
+		if src := sources.SourceByID(j.SourceID); src != nil {
 			j.SourceName = src.Name
 		}
 		jobs = append(jobs, j)
@@ -243,32 +245,32 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type jobsPage struct {
-		Jobs       []model.Job `json:"jobs"`
-		NextCursor *string     `json:"next_cursor"`
+		Jobs       []Job   `json:"jobs"`
+		NextCursor *string `json:"next_cursor"`
 	}
 	page := jobsPage{Jobs: jobs, NextCursor: nextCursor}
 	if page.Jobs == nil {
-		page.Jobs = []model.Job{}
+		page.Jobs = []Job{}
 	}
 	jsonResponse(w, 200, page)
 }
 
-func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetJob(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		jsonResponse(w, 400, map[string]string{"error": "invalid id"})
 		return
 	}
 
-	claims := claimsFromContext(r)
-	userID, err := s.getUserID(claims.Sub)
+	claims := auth.ClaimsFromContext(r)
+	userID, err := auth.GetUserID(h.db, claims.Sub)
 	if err != nil {
 		jsonResponse(w, 500, map[string]string{"error": "could not resolve user"})
 		return
 	}
 
-	var j model.Job
-	err = s.db.QueryRow(`
+	var j Job
+	err = h.db.QueryRow(`
 		SELECT j.id, j.source_id, j.external_id, j.url, j.role, j.company, j.location,
 		       j.remote_type, j.residency, j.employment_type, j.salary, j.raw_text,
 		       COALESCE(uj.status, 'new') as status,
@@ -279,7 +281,7 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 		userID, id,
 	).Scan(&j.ID, &j.SourceID, &j.ExternalID, &j.URL, &j.Role, &j.Company, &j.Location, &j.RemoteType, &j.Residency, &j.EmploymentType, &j.Salary, &j.RawText, &j.Status, &j.PublishedAt, &j.CreatedAt, &j.UpdatedAt)
 	if err == nil {
-		if src := sourceByID(j.SourceID); src != nil {
+		if src := sources.SourceByID(j.SourceID); src != nil {
 			j.SourceName = src.Name
 		}
 	}
@@ -293,8 +295,7 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only this user's timeline entries
-	rows, err := s.db.Query(
+	rows, err := h.db.Query(
 		"SELECT id, job_id, entry_type, status_from, status_to, content, created_at FROM timeline_entries WHERE job_id = ? AND user_id = ? ORDER BY created_at DESC",
 		id, userID,
 	)
@@ -304,9 +305,9 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var timeline []model.TimelineEntry
+	var timeline []TimelineEntry
 	for rows.Next() {
-		var te model.TimelineEntry
+		var te TimelineEntry
 		if err := rows.Scan(&te.ID, &te.JobID, &te.EntryType, &te.StatusFrom, &te.StatusTo, &te.Content, &te.CreatedAt); err != nil {
 			jsonResponse(w, 500, map[string]string{"error": err.Error()})
 			return
@@ -314,20 +315,20 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 		timeline = append(timeline, te)
 	}
 	if timeline == nil {
-		timeline = []model.TimelineEntry{}
+		timeline = []TimelineEntry{}
 	}
 
 	jsonResponse(w, 200, map[string]any{"job": j, "timeline": timeline})
 }
 
-func (s *Server) changeStatus(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ChangeStatus(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		jsonResponse(w, 400, map[string]string{"error": "invalid id"})
 		return
 	}
 
-	var req model.StatusChangeRequest
+	var req StatusChangeRequest
 	if err := decodeJSON(r, &req); err != nil {
 		jsonResponse(w, 400, map[string]string{"error": "invalid body"})
 		return
@@ -342,23 +343,21 @@ func (s *Server) changeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims := claimsFromContext(r)
-	userID, err := s.getUserID(claims.Sub)
+	claims := auth.ClaimsFromContext(r)
+	userID, err := auth.GetUserID(h.db, claims.Sub)
 	if err != nil {
 		jsonResponse(w, 500, map[string]string{"error": "could not resolve user"})
 		return
 	}
 
-	// Verify job exists
 	var exists bool
-	if err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM jobs WHERE id = ?)", id).Scan(&exists); err != nil || !exists {
+	if err := h.db.QueryRow("SELECT EXISTS(SELECT 1 FROM jobs WHERE id = ?)", id).Scan(&exists); err != nil || !exists {
 		jsonResponse(w, 404, map[string]string{"error": "not found"})
 		return
 	}
 
-	// Get current user-specific status (default 'new')
 	var currentStatus string
-	err = s.db.QueryRow("SELECT status FROM user_jobs WHERE job_id = ? AND user_id = ?", id, userID).Scan(&currentStatus)
+	err = h.db.QueryRow("SELECT status FROM user_jobs WHERE job_id = ? AND user_id = ?", id, userID).Scan(&currentStatus)
 	if err == sql.ErrNoRows {
 		currentStatus = "new"
 	} else if err != nil {
@@ -366,7 +365,7 @@ func (s *Server) changeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx, err := s.db.Begin()
+	tx, err := h.db.Begin()
 	if err != nil {
 		jsonResponse(w, 500, map[string]string{"error": err.Error()})
 		return
@@ -397,14 +396,14 @@ func (s *Server) changeStatus(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, 200, map[string]string{"status": "ok"})
 }
 
-func (s *Server) addTimelineEntry(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) AddTimelineEntry(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		jsonResponse(w, 400, map[string]string{"error": "invalid id"})
 		return
 	}
 
-	var req model.TimelineRequest
+	var req TimelineRequest
 	if err := decodeJSON(r, &req); err != nil {
 		jsonResponse(w, 400, map[string]string{"error": "invalid body"})
 		return
@@ -416,15 +415,14 @@ func (s *Server) addTimelineEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims := claimsFromContext(r)
-	userID, err := s.getUserID(claims.Sub)
+	claims := auth.ClaimsFromContext(r)
+	userID, err := auth.GetUserID(h.db, claims.Sub)
 	if err != nil {
 		jsonResponse(w, 500, map[string]string{"error": "could not resolve user"})
 		return
 	}
 
-	// Ensure a user_jobs row exists so the user "owns" this ticket
-	if _, err := s.db.Exec(
+	if _, err := h.db.Exec(
 		"INSERT IGNORE INTO user_jobs (user_id, job_id, status) VALUES (?, ?, 'new')",
 		userID, id,
 	); err != nil {
@@ -432,7 +430,7 @@ func (s *Server) addTimelineEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.db.Exec(
+	result, err := h.db.Exec(
 		"INSERT INTO timeline_entries (job_id, user_id, entry_type, content) VALUES (?, ?, ?, ?)",
 		id, userID, req.EntryType, req.Content,
 	)
@@ -445,16 +443,15 @@ func (s *Server) addTimelineEntry(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, 201, map[string]int64{"id": newID})
 }
 
-func (s *Server) getStats(w http.ResponseWriter, r *http.Request) {
-	claims := claimsFromContext(r)
-	userID, err := s.getUserID(claims.Sub)
+func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
+	claims := auth.ClaimsFromContext(r)
+	userID, err := auth.GetUserID(h.db, claims.Sub)
 	if err != nil {
 		jsonResponse(w, 500, map[string]string{"error": "could not resolve user"})
 		return
 	}
 
-	// Count jobs visible to this user (respects source enabled/age settings)
-	rows, err := s.db.Query(`
+	rows, err := h.db.Query(`
 		SELECT COALESCE(uj.status, 'new') as status, COUNT(*) as count
 		FROM jobs j
 		LEFT JOIN user_jobs uj ON j.id = uj.job_id AND uj.user_id = ?
@@ -494,12 +491,12 @@ func (s *Server) getStats(w http.ResponseWriter, r *http.Request) {
 	}
 	counts["total"] = total
 
-	var lastSync model.SyncRun
-	err = s.db.QueryRow(
+	var lastSync SyncRun
+	err = h.db.QueryRow(
 		"SELECT id, source_id, started_at, completed_at, status, jobs_found, jobs_new FROM sync_runs ORDER BY started_at DESC LIMIT 1",
 	).Scan(&lastSync.ID, &lastSync.SourceID, &lastSync.StartedAt, &lastSync.CompletedAt, &lastSync.Status, &lastSync.JobsFound, &lastSync.JobsNew)
 
-	stats := model.Stats{StatusCounts: counts}
+	stats := Stats{StatusCounts: counts}
 	if err == nil {
 		stats.LastSync = &lastSync
 	}
@@ -507,17 +504,23 @@ func (s *Server) getStats(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, 200, stats)
 }
 
-func (s *Server) hideJob(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) HideJob(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		jsonResponse(w, 400, map[string]string{"error": "invalid id"})
 		return
 	}
-	if _, err := s.db.Exec("UPDATE jobs SET hidden = 1 WHERE id = ?", id); err != nil {
+	if _, err := h.db.Exec("UPDATE jobs SET hidden = 1 WHERE id = ?", id); err != nil {
 		jsonResponse(w, 500, map[string]string{"error": err.Error()})
 		return
 	}
 	jsonResponse(w, 200, map[string]string{"status": "ok"})
+}
+
+func jsonResponse(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(v)
 }
 
 func decodeJSON(r *http.Request, v any) error {

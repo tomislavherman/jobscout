@@ -1,4 +1,4 @@
-package model
+package jobs
 
 import "time"
 
@@ -45,13 +45,6 @@ type SyncRun struct {
 type Stats struct {
 	StatusCounts map[string]int `json:"status_counts"`
 	LastSync     *SyncRun       `json:"last_sync,omitempty"`
-}
-
-type User struct {
-	ID        int64     `json:"id"`
-	Username  string    `json:"username"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
 }
 
 type StatusChangeRequest struct {
