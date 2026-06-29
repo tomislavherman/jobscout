@@ -1,4 +1,4 @@
-package server
+package sources
 
 type SourceConfig struct {
 	ID       int64
@@ -12,7 +12,7 @@ var Sources = []SourceConfig{
 	{ID: 2, Type: "askhn", Name: "Ask HN: Seeking Freelancer?", FeedType: "freelancer"},
 }
 
-func sourceByID(id int64) *SourceConfig {
+func SourceByID(id int64) *SourceConfig {
 	for i := range Sources {
 		if Sources[i].ID == id {
 			return &Sources[i]
