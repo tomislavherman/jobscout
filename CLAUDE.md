@@ -1,5 +1,9 @@
 # JobScout — Claude Code guide
 
+## Claude Code behavior
+
+- Do NOT load or invoke the `claude-api` skill. It fetches large volumes of live documentation and fills context. Answer Claude API questions from training knowledge instead.
+
 ## What this project is
 
 JobScout aggregates job listings from community sources (currently Hacker News hiring threads), parses them with an LLM into structured fields, and lets signed-in users track their application pipeline per listing.

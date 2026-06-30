@@ -1,19 +1,20 @@
 package llm
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"strings"
-	"time"
+
+	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/option"
 )
 
 type Config struct {
 	APIKey  string
 	BaseURL string
+	Model   string
 }
 
 type ExtractedJob struct {
@@ -28,160 +29,108 @@ type ExtractedJob struct {
 	Salary         *string `json:"salary,omitempty"`
 }
 
-type claudeRequest struct {
-	Model     string      `json:"model"`
-	MaxTokens int         `json:"max_tokens"`
-	System    string      `json:"system"`
-	Messages  []claudeMsg `json:"messages"`
-}
-
-type claudeMsg struct {
-	Role    string       `json:"role"`
-	Content []claudePart `json:"content"`
-}
-
-type claudePart struct {
-	Type string `json:"type"`
-	Text string `json:"text,omitempty"`
-}
-
-type claudeResponse struct {
-	Content []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
-	} `json:"content"`
-}
-
 type Client struct {
-	cfg   Config
-	http  *http.Client
+	apiKey string
+	model  string
+	sdk    anthropic.Client
 }
 
 func NewClient(cfg Config) *Client {
+	opts := []option.RequestOption{option.WithAPIKey(cfg.APIKey)}
+	if cfg.BaseURL != "" {
+		opts = append(opts, option.WithBaseURL(cfg.BaseURL))
+	}
 	return &Client{
-		cfg:  cfg,
-		http: &http.Client{Timeout: 60 * time.Second},
+		apiKey: cfg.APIKey,
+		model:  cfg.Model,
+		sdk:    anthropic.NewClient(opts...),
 	}
 }
 
+var extractJobsTool = anthropic.ToolUnionParam{
+	OfTool: &anthropic.ToolParam{
+		Name:        "extract_jobs",
+		Description: anthropic.String("Extract job postings from Hacker News comments. Call once with all jobs found across all provided comments."),
+		InputSchema: anthropic.ToolInputSchemaParam{
+			Properties: map[string]any{
+				"jobs": map[string]any{
+					"type":        "array",
+					"description": "List of extracted job postings. Empty array if no jobs found.",
+					"items": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"external_id":     map[string]any{"type": "string", "description": "The HN comment ID"},
+							"url":             map[string]any{"type": "string", "description": "Application or job URL if mentioned"},
+							"role":            map[string]any{"type": "string", "description": "Job title"},
+							"company":         map[string]any{"type": "string", "description": "Company name"},
+							"location":        map[string]any{"type": "string", "description": "Office location"},
+							"remote_type":     map[string]any{"type": "string", "enum": []string{"remote", "onsite", "hybrid"}, "description": "Work arrangement"},
+							"residency":       map[string]any{"type": "string", "description": "Residency requirement, e.g. US-only, EU-only, global"},
+							"employment_type": map[string]any{"type": "string", "enum": []string{"full-time", "part-time", "contract"}, "description": "Employment type"},
+							"salary":          map[string]any{"type": "string", "description": "Salary range as free text"},
+						},
+						"required": []string{"external_id"},
+					},
+				},
+			},
+		},
+	},
+}
+
+const systemPrompt = `You extract job postings from Hacker News "Who is Hiring?" thread comments.
+Each comment may list multiple jobs — extract each as a separate entry.
+If a comment doesn't contain a job posting, skip it.
+Each comment is prefixed with its ID in the format [id:12345].`
+
 func (c *Client) ExtractJobs(comments []string) ([]ExtractedJob, error) {
-	if c.cfg.APIKey == "" {
+	if c.apiKey == "" {
 		return nil, fmt.Errorf("Anthropic API key not set — set ANTHROPIC_API_KEY env var or use the Sources page config")
 	}
-
-	systemPrompt := `You extract job postings from Hacker News "Who is Hiring?" thread comments.
-Each comment may list multiple jobs. Extract each as a separate JSON object.
-Return a JSON array of objects with these fields:
-- external_id: the comment ID string (you'll be given this per comment)
-- url: application URL if mentioned
-- role: job title
-- company: company name
-- location: location
-- remote_type: "remote", "onsite", "hybrid", or null
-- residency: residency requirement (e.g. "global", "US-only", "EU-only"), or null
-- employment_type: "full-time", "part-time", "contract", or null
-- salary: salary range as free text
-
-If a comment doesn't contain a job posting, return an empty array.
-Output ONLY valid JSON, no markdown fences, no commentary.`
+	if c.model == "" {
+		return nil, fmt.Errorf("LLM model not set — set ANTHROPIC_MODEL env var")
+	}
 
 	var jobs []ExtractedJob
-
 	total := len(comments)
+
 	for i := 0; i < total; i += 10 {
-		end := i + 10
-		if end > total {
-			end = total
-		}
+		end := min(i+10, total)
 		batch := comments[i:end]
 		batchNum := i/10 + 1
 		totalBatches := (total + 9) / 10
 
 		log.Printf("LLM extract: batch %d/%d (comments %d-%d of %d)", batchNum, totalBatches, i+1, end, total)
 
-		parts := batch
-
-		body := claudeRequest{
-			Model:     "claude-sonnet-4-20250514",
+		msg, err := c.sdk.Messages.New(context.Background(), anthropic.MessageNewParams{
+			Model:     anthropic.Model(c.model),
 			MaxTokens: 16000,
-			System:    systemPrompt,
-			Messages: []claudeMsg{
-				{
-					Role: "user",
-					Content: []claudePart{
-						{Type: "text", Text: "Extract jobs from these HN comments:\n\n" + strings.Join(parts, "\n\n")},
-					},
-				},
+			System:    []anthropic.TextBlockParam{{Text: systemPrompt}},
+			Messages: []anthropic.MessageParam{
+				anthropic.NewUserMessage(
+					anthropic.NewTextBlock("Extract jobs from these HN comments:\n\n" + strings.Join(batch, "\n\n")),
+				),
 			},
-		}
-
-		payload, err := json.Marshal(body)
+			Tools:      []anthropic.ToolUnionParam{extractJobsTool},
+			ToolChoice: anthropic.ToolChoiceUnionParam{OfAny: &anthropic.ToolChoiceAnyParam{}},
+		})
 		if err != nil {
-			return nil, fmt.Errorf("marshal request: %w", err)
+			return nil, fmt.Errorf("batch %d: %w", batchNum, err)
 		}
 
-		log.Printf("LLM request:\n%s", string(payload))
-
-		req, err := http.NewRequest("POST", c.cfg.BaseURL, bytes.NewReader(payload))
-		if err != nil {
-			return nil, fmt.Errorf("create request: %w", err)
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("x-api-key", c.cfg.APIKey)
-		req.Header.Set("anthropic-version", "2023-06-01")
-
-		resp, err := c.http.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("claude API call: %w", err)
-		}
-
-		respBody, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			return nil, fmt.Errorf("read response: %w", err)
-		}
-
-		log.Printf("LLM response (status %d):\n%s", resp.StatusCode, string(respBody))
-
-		if resp.StatusCode != 200 {
-			return nil, fmt.Errorf("claude API error %d: %s", resp.StatusCode, string(respBody))
-		}
-
-		var claudeResp claudeResponse
-		if err := json.Unmarshal(respBody, &claudeResp); err != nil {
-			return nil, fmt.Errorf("unmarshal claude response: %w", err)
-		}
-
-		var textBlock string
-		for _, block := range claudeResp.Content {
-			if block.Type == "text" {
-				textBlock = block.Text
-				break
-			}
-		}
-		if textBlock == "" {
-			continue
-		}
-
-		var batchJobs []ExtractedJob
-		text := textBlock
-		text = strings.TrimSpace(text)
-		text = strings.TrimPrefix(text, "```json")
-		text = strings.TrimPrefix(text, "```")
-		text = strings.TrimSuffix(text, "```")
-		text = strings.TrimSpace(text)
-
-		if err := json.Unmarshal([]byte(text), &batchJobs); err != nil {
-			var single ExtractedJob
-			if json.Unmarshal([]byte(text), &single) == nil {
-				batchJobs = []ExtractedJob{single}
-			} else {
+		for _, block := range msg.Content {
+			tu, ok := block.AsAny().(anthropic.ToolUseBlock)
+			if !ok || tu.Name != "extract_jobs" {
 				continue
 			}
+			var input struct {
+				Jobs []ExtractedJob `json:"jobs"`
+			}
+			if err := json.Unmarshal([]byte(tu.JSON.Input.Raw()), &input); err != nil {
+				return nil, fmt.Errorf("batch %d: unmarshal tool input: %w", batchNum, err)
+			}
+			log.Printf("LLM extract: batch %d/%d done — %d jobs extracted", batchNum, totalBatches, len(input.Jobs))
+			jobs = append(jobs, input.Jobs...)
 		}
-
-		log.Printf("LLM extract: batch %d/%d done — %d jobs extracted", batchNum, totalBatches, len(batchJobs))
-		jobs = append(jobs, batchJobs...)
 	}
 
 	return jobs, nil

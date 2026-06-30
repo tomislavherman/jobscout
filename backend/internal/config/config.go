@@ -11,6 +11,7 @@ type Config struct {
 	Port             string
 	AnthropicAPIKey  string
 	AnthropicBaseURL string
+	AnthropicModel   string
 }
 
 func Load() Config {
@@ -20,7 +21,8 @@ func Load() Config {
 		MySQLDSN:         getEnv("MYSQL_DSN", "root:root@tcp(localhost:3306)/jobscout_dev?parseTime=true&charset=utf8mb4&multiStatements=true"),
 		Port:             getEnv("PORT", "8080"),
 		AnthropicAPIKey:  getEnv("ANTHROPIC_API_KEY", ""),
-		AnthropicBaseURL: getEnv("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1/messages"),
+		AnthropicBaseURL: getEnv("ANTHROPIC_BASE_URL", ""),
+		AnthropicModel:   getEnv("ANTHROPIC_MODEL", ""),
 	}
 }
 

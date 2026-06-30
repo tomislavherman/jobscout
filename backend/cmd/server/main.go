@@ -28,6 +28,7 @@ func main() {
 	llmClient := llm.NewClient(llm.Config{
 		APIKey:  cfg.AnthropicAPIKey,
 		BaseURL: cfg.AnthropicBaseURL,
+		Model:   cfg.AnthropicModel,
 	})
 
 	// Start hourly sync scheduler
