@@ -9,7 +9,7 @@ const statusColors: Record<string, string> = {
   rejected: 'bg-red-100 text-red-800',
   withdrawn: 'bg-gray-100 text-gray-600',
   ghosted: 'bg-orange-100 text-orange-800',
-  not_interested: 'bg-gray-100 text-gray-500',
+  not_interested: 'bg-black text-white',
 }
 
 export default function StatusBadge({ status }: { status: string }) {

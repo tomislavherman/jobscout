@@ -4,16 +4,18 @@ import { getStats } from '../api'
 import { useT } from '../i18n'
 import type { Translations } from '../i18n/en'
 
-const statusOrder: JobStatus[] = ['new', 'applied', 'interviewing', 'offer', 'withdrawn', 'ghosted', 'not_interested']
+const statusOrder: JobStatus[] = ['new', 'saved', 'applied', 'interviewing', 'offer', 'rejected', 'withdrawn', 'ghosted', 'not_interested']
 
 const statusColors: Record<string, string> = {
   new: 'bg-blue-500',
+  saved: 'bg-cyan-500',
   applied: 'bg-yellow-500',
   interviewing: 'bg-purple-500',
   offer: 'bg-green-500',
+  rejected: 'bg-red-400',
   withdrawn: 'bg-gray-400',
   ghosted: 'bg-red-500',
-  not_interested: 'bg-gray-300',
+  not_interested: 'bg-black',
 }
 
 export default function Stats() {

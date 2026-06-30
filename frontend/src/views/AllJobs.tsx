@@ -10,14 +10,14 @@ const STATUSES: (JobStatus | 'all')[] = ['all', 'new', 'saved', 'applied', 'inte
 const TAB_COLORS: Record<string, { inactive: string; active: string }> = {
   all:          { inactive: 'bg-gray-100 text-gray-500',    active: 'bg-gray-900 text-white' },
   new:          { inactive: 'bg-blue-50 text-blue-500',     active: 'bg-blue-200 text-blue-900' },
-  saved:        { inactive: 'bg-teal-50 text-teal-500',     active: 'bg-teal-200 text-teal-900' },
+  saved:        { inactive: 'bg-cyan-50 text-cyan-500',     active: 'bg-cyan-200 text-cyan-900' },
   applied:      { inactive: 'bg-yellow-50 text-yellow-600', active: 'bg-yellow-200 text-yellow-900' },
   interviewing: { inactive: 'bg-purple-50 text-purple-500', active: 'bg-purple-200 text-purple-900' },
   offer:        { inactive: 'bg-green-50 text-green-600',   active: 'bg-green-200 text-green-900' },
   rejected:     { inactive: 'bg-red-50 text-red-500',       active: 'bg-red-200 text-red-900' },
   withdrawn:    { inactive: 'bg-gray-100 text-gray-400',    active: 'bg-gray-300 text-gray-800' },
   ghosted:      { inactive: 'bg-orange-50 text-orange-500', active: 'bg-orange-200 text-orange-900' },
-  not_interested: { inactive: 'bg-gray-50 text-gray-400',  active: 'bg-gray-200 text-gray-700' },
+  not_interested: { inactive: 'bg-gray-100 text-gray-700', active: 'bg-black text-white' },
 }
 
 export default function AllJobs() {
