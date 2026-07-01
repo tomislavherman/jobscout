@@ -121,6 +121,18 @@ export default function About() {
         </section>
 
         <section className="bg-white rounded-lg border border-gray-200 p-6">
+          <h3 className="font-medium mb-3">{t('about_project')}</h3>
+          <p className="text-sm text-gray-600 leading-relaxed">
+            {t('about_project_desc')}{' '}
+            {t('about_project_github')}{' '}
+            <a href="https://github.com/tomislavherman/jobscout" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{t('about_project_github_link')}</a>.
+          </p>
+          <p className="text-sm text-gray-600 leading-relaxed mt-2">
+            {t('about_signup_desc')}
+          </p>
+        </section>
+
+        <section className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="font-medium mb-3">{t('about_suggest')}</h3>
           <p className="text-sm text-gray-600 mb-4">
             {t('about_suggest_desc')}

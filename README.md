@@ -127,6 +127,37 @@ sudo systemctl enable --now haproxy
 sudo systemctl reload haproxy
 ```
 
+### Deploying on a subpath (e.g. `example.com/jobscout`)
+
+Set `VITE_BASE_PATH` when building so the frontend references assets under the right path:
+
+```bash
+VITE_BASE_PATH=/jobscout/ make build
+./jobscout
+```
+
+The Go server itself needs no changes — it always listens on `/`.
+
+In `haproxy.cfg`, add an ACL to match the subpath and configure the backend to strip the prefix before forwarding to the app:
+
+```
+frontend http_in
+    ...
+    acl host_myapp hdr(host) -i myapp.example.com
+    acl is_jobscout path_beg /jobscout
+    use_backend jobscout if host_myapp is_jobscout
+
+backend jobscout
+    http-request replace-path /jobscout(.*) \1
+    server app 127.0.0.1:8080 check
+```
+
+Then reload HAProxy:
+
+```bash
+sudo systemctl reload haproxy
+```
+
 ## TLS Setup with Let's Encrypt and HAProxy
 
 Uses certbot webroot method for HTTP-01 challenge, HAProxy for TLS termination.
@@ -234,37 +265,3 @@ sudo certbot renew --dry-run
 
 No other config changes needed — HAProxy picks up new `.pem` files from the certs directory automatically on reload.
 
----
-
-## Deploying on a subpath (e.g. `example.com/jobscout`)
-
-Set `VITE_BASE_PATH` when building so the frontend references assets under the right path:
-
-```bash
-VITE_BASE_PATH=/jobscout/ make build
-./jobscout
-```
-
-The Go server itself needs no changes — it always listens on `/`.
-
-### HAProxy configuration for subpath
-
-In `haproxy.cfg`, add an ACL to match the subpath and configure the backend to strip the prefix before forwarding to the app:
-
-```
-frontend http_in
-    ...
-    acl host_myapp hdr(host) -i myapp.example.com
-    acl is_jobscout path_beg /jobscout
-    use_backend jobscout if host_myapp is_jobscout
-
-backend jobscout
-    http-request replace-path /jobscout(.*) \1
-    server app 127.0.0.1:8080 check
-```
-
-Then reload HAProxy:
-
-```bash
-sudo systemctl reload haproxy
-```
