@@ -84,7 +84,7 @@ func (h *Handler) ListPublicJobs(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(j.published_at, j.created_at) as sort_time
 		FROM jobs j
 		WHERE j.hidden = 0
-		AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
+		AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL 14 DAY)`
 	var args []any
 	if cursorTime != nil {
 		query += " AND (COALESCE(j.published_at, j.created_at) < ? OR (COALESCE(j.published_at, j.created_at) = ? AND j.id < ?))"
@@ -183,7 +183,7 @@ func (h *Handler) ListJobs(w http.ResponseWriter, r *http.Request) {
 			OR (
 				COALESCE(uss.enabled, 1) = 1
 				AND (
-					(uss.user_id IS NULL AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY))
+					(uss.user_id IS NULL AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL 14 DAY))
 					OR (uss.user_id IS NOT NULL AND uss.max_age_days IS NULL)
 					OR (uss.max_age_days IS NOT NULL AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL uss.max_age_days DAY))
 				)
@@ -462,7 +462,7 @@ func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
 			OR (
 				COALESCE(uss.enabled, 1) = 1
 				AND (
-					(uss.user_id IS NULL AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY))
+					(uss.user_id IS NULL AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL 14 DAY))
 					OR (uss.user_id IS NOT NULL AND uss.max_age_days IS NULL)
 					OR (uss.max_age_days IS NOT NULL AND COALESCE(j.published_at, j.created_at) >= DATE_SUB(NOW(), INTERVAL uss.max_age_days DAY))
 				)

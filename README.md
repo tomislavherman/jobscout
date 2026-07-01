@@ -231,8 +231,6 @@ HOOK
 sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/haproxy-reload.sh
 ```
 
----
-
 ### Issuing a Certificate
 
 ```bash
@@ -244,8 +242,6 @@ Then run the deploy hook once manually (it only fires automatically on renewal, 
 sudo /etc/letsencrypt/renewal-hooks/deploy/haproxy-reload.sh
 ```
 
----
-
 ### Renewal
 
 Certificates are valid for **90 days**. Renewal is automatic — `certbot.timer` runs `certbot renew` twice daily and only renews certs within 30 days of expiry. The deploy hook fires automatically on successful renewal, no manual steps needed.
@@ -254,8 +250,6 @@ Test the renewal pipeline:
 ```bash
 sudo certbot renew --dry-run
 ```
-
----
 
 ### Adding a New Domain
 
